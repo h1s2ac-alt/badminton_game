@@ -63,10 +63,11 @@ export class Player {
     }
   }
 
-  triggerSwing() {
+  triggerSwing(shotType = 'CLEAR') {
     this.animState = 'SWINGING';
-    this.animTimer = 0.55; 
-    this.swingDuration = 0.55;
+    this.currentShotType = shotType;
+    this.animTimer = 0.58; 
+    this.swingDuration = 0.58;
   }
 
   triggerWhiff() {
@@ -78,6 +79,16 @@ export class Player {
     this.animState = 'STUMBLE';
     this.animTimer = 1.0; // 1-second recovery penalty
     this.stumbleTimer = 1.0;
+  }
+
+  triggerCelebrate() {
+    this.animState = 'CELEBRATE';
+    this.animTimer = 1.6;
+  }
+
+  triggerDisappointed() {
+    this.animState = 'DISAPPOINTED';
+    this.animTimer = 1.6;
   }
 
   update(dt, shuttlecock, isRallyActive) {

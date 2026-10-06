@@ -59,33 +59,81 @@ export class GameEngine {
       const dx = this.shuttlecock.x - this.player.x;
       const dz = this.shuttlecock.z - this.player.z;
       const dist = Math.hypot(dx, dz);
+      // zTiming > 0 means shuttlecock is in front of player (towards net)
+      // zTiming < 0 means shuttlecock has passed behind player
+      const zTiming = this.shuttlecock.z - this.player.z;
 
       let quality = 'GOOD';
-      if (dist < 0.9) {
-        quality = 'PERFECT';
-      } else if (dist > 1.9) {
-        quality = 'POOR';
-      }
-
-      // Automatically pick optimal shot based on shuttlecock height and position
+      let sideBias = 0;
+      let timingLabel = 'GOOD!';
+      let timingColor = '#4ADE80';
       let shotType = SHOT_TYPES.CLEAR;
-      if (this.shuttlecock.y > 2.2 && dist < 1.3) {
-        shotType = SHOT_TYPES.SMASH;
-      } else if (this.shuttlecock.z > -2.2) {
-        shotType = SHOT_TYPES.DROP;
-      } else if (Math.random() < 0.35) {
-        shotType = SHOT_TYPES.DRIVE;
-      }
 
-      // Aim dynamically to open court
-      const targetSide = this.opponent.x > 0 ? -1 : 1;
-      const sideBias = targetSide * 0.45;
+      // 1. EARLY SWING (Contact out in front -> Racket angles CROSS-COURT)
+      if (zTiming > 0.28) {
+        // Cross-court aim (opposite side from player's current side)
+        const crossSide = this.player.x >= 0 ? -1 : 1;
+        sideBias = crossSide * 0.80;
+        timingLabel = 'EARLY (CROSS-COURT)';
+        timingColor = '#06B6D4'; // Vibrant Cyan
+
+        if (this.shuttlecock.y > 2.1 && dist < 1.4) {
+          shotType = SHOT_TYPES.SMASH;
+        } else if (this.shuttlecock.z > -2.2) {
+          shotType = SHOT_TYPES.DROP;
+        } else {
+          shotType = SHOT_TYPES.CLEAR;
+        }
+      }
+      // 2. PERFECT / SWEET-SPOT SWING (Direct contact in optimal pocket)
+      else if (zTiming >= -0.32) {
+        quality = 'PERFECT';
+        // Aim smartly away from opponent's current location to open court
+        const openCourtSide = this.opponent.x >= 0 ? -1 : 1;
+        sideBias = openCourtSide * 0.72;
+
+        if (this.shuttlecock.y > 2.0 && dist < 1.4) {
+          shotType = SHOT_TYPES.SMASH;
+          timingLabel = 'PERFECT! (SMASH!)';
+          timingColor = '#FACC15'; // Radiant Gold
+        } else if (this.shuttlecock.y < 1.2 || this.shuttlecock.z > -2.2) {
+          shotType = SHOT_TYPES.DROP;
+          timingLabel = 'PERFECT! (DROP)';
+          timingColor = '#4ADE80'; // Emerald Green
+        } else {
+          shotType = SHOT_TYPES.DRIVE;
+          timingLabel = 'PERFECT! (DRIVE)';
+          timingColor = '#38BDF8'; // Electric Sky Blue
+        }
+      }
+      // 3. LATE SWING (Contact behind player -> Racket pushes DOWN THE LINE)
+      else if (zTiming >= -0.75) {
+        // Down the line (same side of court as player)
+        const lineSide = this.player.x >= 0 ? 1 : -1;
+        sideBias = lineSide * 0.74;
+        timingLabel = 'LATE (DOWN-THE-LINE)';
+        timingColor = '#FB923C'; // Warm Orange
+
+        if (this.shuttlecock.y > 2.2) {
+          shotType = SHOT_TYPES.CLEAR;
+        } else {
+          shotType = SHOT_TYPES.DRIVE;
+        }
+      }
+      // 4. TOO LATE (Off-balance recovery)
+      else {
+        quality = 'POOR';
+        sideBias = (Math.random() - 0.5) * 0.4;
+        shotType = SHOT_TYPES.CLEAR;
+        timingLabel = 'TOO LATE!';
+        timingColor = '#EF4444';
+      }
 
       this._executePlayerShot({
         shotType,
-        power: 0.95,
+        power: quality === 'PERFECT' ? 1.05 : 0.95,
         sideBias,
-      }, false, quality);
+      }, false, quality, timingLabel, timingColor);
 
       // Prevent re-triggering until the shot is well underway
       this._swingCooldown = 0.5;
@@ -175,17 +223,17 @@ export class GameEngine {
     }
   }
 
-  _executePlayerShot(swipe, isServe = false, quality = 'GOOD') {
+  _executePlayerShot(swipe, isServe = false, quality = 'GOOD', timingLabel = null, timingColor = null) {
     if (quality === 'POOR' && !isServe) {
-      this.player.triggerStumble(); // Item #4: Stumble mechanic
+      this.player.triggerStumble(); // Stumble mechanic
       // Force weak clear on stumble
       swipe.shotType = SHOT_TYPES.CLEAR; 
       swipe.power = 0.6;
     } else {
-      this.player.triggerSwing();
+      this.player.triggerSwing(swipe.shotType);
     }
 
-    // Item #4: Consume stamina based on shot type
+    // Consume stamina based on shot type
     let staminaCost = 0.05;
     if (swipe.shotType === SHOT_TYPES.SMASH) staminaCost = 0.15;
     else if (swipe.shotType === SHOT_TYPES.CLEAR) staminaCost = 0.08;
@@ -196,7 +244,7 @@ export class GameEngine {
     const qualityMult = quality === 'PERFECT' ? 1.15 : (quality === 'POOR' ? 0.7 : 1.0);
     const finalPower = swipe.power * staminaPowerMult * qualityMult;
 
-    // Item #3 & Diagonal Serve rules
+    // Diagonal Serve & Aiming rules
     let targetX;
     if (isServe) {
       // Must serve to diagonal opposite court
@@ -204,13 +252,13 @@ export class GameEngine {
       const biasOffset = (swipe.sideBias || 0) * 0.8; // -0.8 to 0.8
       targetX = (serveDir * Court.HALF_WIDTH / 2) + (biasOffset * Court.HALF_WIDTH / 2);
     } else {
-      targetX = (swipe.sideBias || 0) * (Court.HALF_WIDTH * 0.8);
+      targetX = (swipe.sideBias || 0) * (Court.HALF_WIDTH * 0.85);
       if (Math.abs(targetX) < 0.2) {
         targetX = (Math.random() - 0.5) * Court.HALF_WIDTH * 0.8;
       }
     }
 
-    let targetZ = COURT.HALF_LENGTH - 1.0; // default deep
+    let targetZ = COURT.HALF_LENGTH - 0.8; // default deep
     if (isServe) {
       // Serve landing spot (short or deep service box based on swipe type)
       targetZ = swipe.shotType === SHOT_TYPES.DROP ? COURT.SHORT_SERVICE_DIST + 0.5 : 4.8;
@@ -220,7 +268,7 @@ export class GameEngine {
       targetZ = 3.2;
     }
 
-    // Add some random error to aim based on quality
+    // Add subtle aim variance for POOR hits
     if (quality === 'POOR') {
       targetX += (Math.random() - 0.5) * 1.5;
       targetZ += (Math.random() - 0.5) * 1.5;
@@ -236,15 +284,17 @@ export class GameEngine {
     const isSmash = swipe.shotType === SHOT_TYPES.SMASH;
     this.renderer.effectsRenderer.addImpact(
       startPos,
-      isSmash ? '#FF4020' : (quality === 'PERFECT' ? '#60A5FA' : '#4ADE80'),
-      isSmash ? 1.3 : 0.7
+      isSmash ? '#FF4020' : (quality === 'PERFECT' ? '#FACC15' : '#4ADE80'),
+      isSmash ? 1.4 : 0.75
     );
     if (isSmash) {
-      this.renderer.effectsRenderer.addHitText(startPos, 'SMASH!', '#FF4020');
-      this.renderer.effectsRenderer.triggerShake(1.0);
-      this.freezeFrames = 0.08; // Item #2: Hit-stop freeze frame!
+      this.renderer.effectsRenderer.addHitText(startPos, timingLabel || 'SMASH!', '#FF4020');
+      this.renderer.effectsRenderer.triggerShake(1.2);
+      this.freezeFrames = 0.08; // Hit-stop freeze frame!
     } else if (isServe) {
       this.renderer.effectsRenderer.addHitText(startPos, 'SERVE!', '#FACC15');
+    } else if (timingLabel) {
+      this.renderer.effectsRenderer.addHitText(startPos, timingLabel, timingColor || '#4ADE80');
     } else if (quality === 'PERFECT') {
       this.renderer.effectsRenderer.addHitText(startPos, 'PERFECT!', '#60A5FA');
     } else if (quality === 'POOR') {
@@ -268,7 +318,7 @@ export class GameEngine {
       aiShot.shotType = SHOT_TYPES.CLEAR;
       aiShot.power *= 0.7;
     } else {
-      this.opponent.triggerSwing();
+      this.opponent.triggerSwing(aiShot.shotType);
     }
 
     if (aiShot.shotType === SHOT_TYPES.SERVE) {
@@ -341,6 +391,8 @@ export class GameEngine {
         this._resolvePoint();
       }
     } else if (this.state === GAME_STATES.POINT_SCORED) {
+      this.player.update(dt, null, false);
+      this.opponent.update(dt);
       this.bannerTimer -= dt;
       if (this.bannerTimer <= 0) {
         this.bannerMessage = null;
@@ -371,7 +423,7 @@ export class GameEngine {
     let winner = null;
     let reason = '';
 
-    // Item #2: Handle Net Faults
+    // Net Faults
     if (s.hitNet) {
       if (s.lastHitter === 'player') {
         winner = 'opponent';
@@ -403,6 +455,15 @@ export class GameEngine {
     this.bannerMessage = reason;
     this.bannerColor = winner === 'player' ? '#4ADE80' : '#EF4444';
     this.bannerTimer = 1.6;
+
+    // Trigger celebration & disappointment animations
+    if (winner === 'player') {
+      this.player.triggerCelebrate();
+      this.opponent.triggerDisappointed();
+    } else if (winner === 'opponent') {
+      this.player.triggerDisappointed();
+      this.opponent.triggerCelebrate();
+    }
 
     if (result.type === 'GAME_WON') {
       this.bannerMessage = result.winner === 'player' ? 'YOU WON THE GAME!' : `${this.opponent.name} WON THE GAME!`;

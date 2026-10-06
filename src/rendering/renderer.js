@@ -52,7 +52,7 @@ export class Renderer {
     this.threeRenderer.setSize(this.width, this.height);
     this.threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.threeRenderer.shadowMap.enabled = true;
-    this.threeRenderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.threeRenderer.shadowMap.type = THREE.PCFShadowMap;
     this.threeRenderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.threeRenderer.toneMappingExposure = 1.15;
   }

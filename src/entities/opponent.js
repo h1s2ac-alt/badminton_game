@@ -70,10 +70,11 @@ export class Opponent {
     }
   }
 
-  triggerSwing() {
+  triggerSwing(shotType = 'CLEAR') {
     this.animState = 'SWINGING';
-    this.animTimer = 0.55;
-    this.swingDuration = 0.55;
+    this.currentShotType = shotType;
+    this.animTimer = 0.58;
+    this.swingDuration = 0.58;
   }
 
   triggerWhiff() {
@@ -85,6 +86,16 @@ export class Opponent {
     this.animState = 'STUMBLE';
     this.animTimer = 1.0; 
     this.stumbleTimer = 1.0;
+  }
+
+  triggerCelebrate() {
+    this.animState = 'CELEBRATE';
+    this.animTimer = 1.6;
+  }
+
+  triggerDisappointed() {
+    this.animState = 'DISAPPOINTED';
+    this.animTimer = 1.6;
   }
 
   update(dt) {
