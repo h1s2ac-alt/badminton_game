@@ -6,6 +6,7 @@ export class Trajectory {
     this.shotType = shotType;
     this.start = { ...startPos };
     this.target = { ...targetPos, y: targetPos.y || 0 };
+    this.targetPos = this.target;
     this.power = clamp(power, 0.4, 1.3);
 
     // Compute parameters based on shot type

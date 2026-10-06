@@ -14,6 +14,7 @@ const inputManager = new InputManager(gameCanvas);
 
 // Initialize game engine
 const game = new GameEngine(renderer, inputManager);
+window.game = game;
 
 // Handle window resizing
 window.addEventListener('resize', () => {

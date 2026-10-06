@@ -138,9 +138,12 @@ export class Shuttle3D {
       const t = traj.duration > 0 ? Math.min(1, traj.elapsed / traj.duration) : 0;
       const ringScale = Math.max(0.4, (1 - t * 0.7));
 
-      this.landingRing.visible = true;
-      this.landingRing.position.set(-traj.targetPos.x, 0.005, traj.targetPos.z);
-      this.landingRing.scale.set(ringScale, ringScale, 1);
+      const target = traj.target || traj.targetPos;
+      if (target) {
+        this.landingRing.visible = true;
+        this.landingRing.position.set(-target.x, 0.005, target.z);
+        this.landingRing.scale.set(ringScale, ringScale, 1);
+      }
 
       // Flash green when close to hitting sweet-spot
       if (t > 0.65) {
