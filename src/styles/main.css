@@ -1,0 +1,164 @@
+/* ────────────────────────────────────────────────────────────────────────────
+   main.css — Base styles, layout, responsive grid, dark theme
+   ──────────────────────────────────────────────────────────────────────────── */
+
+/* ── Reset & Base ──────────────────────────────────────────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  /* Palette */
+  --bg:          #1a1a2e;
+  --panel:       #16213e;
+  --panel-light: #1f2b4a;
+  --border:      #2a3a5c;
+  --accent:      #06b6d4;   /* cyan — player */
+  --accent-2:    #f43f5e;   /* coral — opponent */
+  --accent-3:    #f59e0b;   /* amber — highlights */
+  --text:        #e2e8f0;
+  --text-muted:  #94a3b8;
+  --text-dim:    #64748b;
+
+  /* Court colors */
+  --court-bg:    #1e3a1e;
+  --court-line:  rgba(255,255,255,0.7);
+  --court-net:   rgba(255,255,255,0.5);
+  --zone-hover:  rgba(245,158,11,0.22);
+  --zone-selected: rgba(6,182,212,0.28);
+
+  /* Stamina tiers */
+  --sta-full:     #22c55e;
+  --sta-good:     #84cc16;
+  --sta-low:      #f59e0b;
+  --sta-critical: #ef4444;
+
+  /* Layout */
+  --hud-height:     56px;
+  --log-height:     72px;
+  --radius:         8px;
+  --radius-lg:      12px;
+  --transition:     0.15s ease;
+
+  font-family: -apple-system, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  font-size: 16px;
+  color: var(--text);
+  background: var(--bg);
+}
+
+html, body, #app {
+  height: 100%;
+  overflow: hidden;
+}
+
+/* ── Typography ────────────────────────────────────────────────────────────── */
+h1 { font-size: 2rem;   font-weight: 700; letter-spacing: -0.02em; }
+h2 { font-size: 1.4rem; font-weight: 600; }
+h3 { font-size: 1.1rem; font-weight: 600; }
+p  { line-height: 1.6; }
+
+/* ── Screen Wrapper ─────────────────────────────────────────────────────────── */
+.screen {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Game Layout (desktop) ──────────────────────────────────────────────────── */
+/*
+  HUD (top bar)
+  ┌──────────────────┬─────────────────────────────────┐
+  │  COURT CANVAS    │  SHOT PANEL (right)             │
+  │                  │   Shot type buttons              │
+  │                  │   Zone picker                    │
+  │                  │   Execute button                 │
+  └──────────────────┴─────────────────────────────────┘
+  RALLY LOG (bottom bar)
+*/
+
+#game-screen {
+  display: grid;
+  grid-template-rows: var(--hud-height) 1fr var(--log-height);
+  grid-template-columns: 1fr;
+  height: 100%;
+}
+
+#game-hud {
+  grid-row: 1;
+  grid-column: 1;
+}
+
+#game-body {
+  grid-row: 2;
+  grid-column: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+#court-section {
+  flex: 1 1 55%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+  padding: 12px;
+}
+
+#shot-section {
+  flex: 0 0 340px;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+#game-log {
+  grid-row: 3;
+  grid-column: 1;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Mobile Layout (portrait ≤ 640px) ──────────────────────────────────────── */
+@media (max-width: 640px) {
+  :root {
+    --hud-height:  48px;
+    --log-height:  52px;
+    font-size: 14px;
+  }
+
+  #game-body {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  #court-section {
+    flex: 0 0 auto;
+    padding: 8px;
+  }
+
+  #shot-section {
+    flex: 1 1 auto;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    overflow-y: visible;
+  }
+}
+
+/* ── Tablet Layout (641–900px) ──────────────────────────────────────────────── */
+@media (min-width: 641px) and (max-width: 900px) {
+  #shot-section {
+    flex: 0 0 280px;
+  }
+}
+
+/* ── Scrollbar ──────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
