@@ -23,18 +23,20 @@ export class Shuttle3D {
 
   _buildShuttleMesh() {
     this.meshGroup = new THREE.Group();
+    // Arcade scale for crystal-clear visual tracking across entire court
+    this.meshGroup.scale.set(2.4, 2.4, 2.4);
     this.group.add(this.meshGroup);
 
-    // 1. Rounded cork base (cream/white leather-wrapped cork)
+    // 1. Rounded cork base (high-visibility bright white/cream)
     const corkGeo = new THREE.SphereGeometry(0.028, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-    const corkMat = new THREE.MeshToonMaterial({ color: 0xF8F5E8 });
+    const corkMat = new THREE.MeshToonMaterial({ color: 0xFFFFF5 });
     const cork = new THREE.Mesh(corkGeo, corkMat);
     cork.castShadow = true;
     this.meshGroup.add(cork);
 
-    // 2. Dark blue binding tape
+    // 2. High-contrast electric blue binding tape
     const tapeGeo = new THREE.CylinderGeometry(0.029, 0.029, 0.008, 16);
-    const tapeMat = new THREE.MeshToonMaterial({ color: 0x1E40AF });
+    const tapeMat = new THREE.MeshToonMaterial({ color: 0x2563EB });
     const tape = new THREE.Mesh(tapeGeo, tapeMat);
     tape.position.y = -0.005;
     this.meshGroup.add(tape);
@@ -42,10 +44,10 @@ export class Shuttle3D {
     // 3. Flared feather / nylon skirt
     const skirtGeo = new THREE.CylinderGeometry(0.065, 0.029, 0.085, 16, 1, true);
     const skirtMat = new THREE.MeshToonMaterial({
-      color: 0xFDFFE5, // Bright yellow/white badminton nylon
+      color: 0xFEFCE8, // Bright crisp white-yellow badminton nylon
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.90,
+      opacity: 0.95,
     });
     const skirt = new THREE.Mesh(skirtGeo, skirtMat);
     skirt.position.y = -0.048;
@@ -69,16 +71,32 @@ export class Shuttle3D {
   }
 
   _buildLandingRing() {
-    // Projected target reticle on the court surface
-    const ringGeo = new THREE.RingGeometry(0.25, 0.30, 32);
-    const ringMat = new THREE.MeshBasicMaterial({
+    // Projected target reticle on the court surface (larger + with center focal dot)
+    const ringGroup = new THREE.Group();
+    const ringGeo = new THREE.RingGeometry(0.35, 0.46, 32);
+    this.landingRingMat = new THREE.MeshBasicMaterial({
       color: 0xFACC15,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.8,
+      opacity: 0.85,
     });
-    this.landingRing = new THREE.Mesh(ringGeo, ringMat);
-    this.landingRing.rotation.x = -Math.PI / 2;
+    const ringMesh = new THREE.Mesh(ringGeo, this.landingRingMat);
+    ringMesh.rotation.x = -Math.PI / 2;
+    ringGroup.add(ringMesh);
+
+    // Center focal dot
+    const dotGeo = new THREE.CircleGeometry(0.12, 16);
+    this.landingDotMat = new THREE.MeshBasicMaterial({
+      color: 0xFACC15,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0.9,
+    });
+    const dotMesh = new THREE.Mesh(dotGeo, this.landingDotMat);
+    dotMesh.rotation.x = -Math.PI / 2;
+    ringGroup.add(dotMesh);
+
+    this.landingRing = ringGroup;
     this.landingRing.position.y = 0.005; // Just above court surface
     this.landingRing.visible = false;
     this.scene.add(this.landingRing);
@@ -147,9 +165,11 @@ export class Shuttle3D {
 
       // Flash green when close to hitting sweet-spot
       if (t > 0.65) {
-        this.landingRing.material.color.setHex(0x4ADE80);
+        this.landingRingMat.color.setHex(0x4ADE80);
+        this.landingDotMat.color.setHex(0x4ADE80);
       } else {
-        this.landingRing.material.color.setHex(0xFACC15);
+        this.landingRingMat.color.setHex(0xFACC15);
+        this.landingDotMat.color.setHex(0xFACC15);
       }
     } else {
       this.landingRing.visible = false;

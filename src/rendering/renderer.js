@@ -38,11 +38,11 @@ export class Renderer {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x8B7355); // Warm gym wall color
 
-    // Camera matching Wii Badminton angle (high above the shoulder, looking down into court)
-    this.camera = new THREE.PerspectiveCamera(46, this.width / this.height, 0.1, 100);
-    this.baseCamY = 3.3;
-    this.camera.position.set(0, this.baseCamY, -9.2);
-    this.camera.lookAt(0, 1.1, 0);
+    // Elevated broadcast camera looking down over player's head (unobstructed view of shuttle, racket, & net)
+    this.camera = new THREE.PerspectiveCamera(48, this.width / this.height, 0.1, 100);
+    this.baseCamY = 4.8;
+    this.camera.position.set(0, this.baseCamY, -8.6);
+    this.camera.lookAt(0, 0.85, 0.2);
 
     this.threeRenderer = new THREE.WebGLRenderer({
       canvas: this.threeCanvas,
@@ -106,12 +106,12 @@ export class Renderer {
   _updateDynamicCamera(shuttlecock) {
     if (shuttlecock && shuttlecock.inFlight && shuttlecock.y > 3.0) {
       const highFactor = Math.min(1.0, (shuttlecock.y - 3.0) / 4.0);
-      const targetY = this.baseCamY + highFactor * 0.45;
-      this.camera.position.y += (targetY - this.camera.position.y) * 0.1;
-      this.camera.lookAt(0, 1.1 + highFactor * 0.7, 0);
+      const targetY = this.baseCamY + highFactor * 0.55;
+      this.camera.position.y += (targetY - this.camera.position.y) * 0.08;
+      this.camera.lookAt(0, 0.85 + highFactor * 0.5, 0.2);
     } else {
-      this.camera.position.y += (this.baseCamY - this.camera.position.y) * 0.05;
-      this.camera.lookAt(0, 1.1, 0);
+      this.camera.position.y += (this.baseCamY - this.camera.position.y) * 0.06;
+      this.camera.lookAt(0, 0.85, 0.2);
     }
   }
 

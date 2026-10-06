@@ -274,7 +274,10 @@ export class GameEngine {
       targetZ += (Math.random() - 0.5) * 1.5;
     }
 
-    const startPos = { x: this.player.x, y: 1.5, z: this.player.z };
+    // Launch from current shuttlecock position during rallies to eliminate teleporting!
+    const startPos = isServe
+      ? { x: this.player.x + (this.player.x > 0 ? -0.25 : 0.25), y: 1.2, z: this.player.z + 0.3 }
+      : { x: this.shuttlecock.x, y: Math.max(0.4, this.shuttlecock.y), z: this.shuttlecock.z };
     const targetPos = { x: targetX, y: 0, z: targetZ };
 
     const shotType = isServe ? SHOT_TYPES.SERVE : swipe.shotType;
@@ -326,7 +329,9 @@ export class GameEngine {
       aiShot.targetPos.x = (serveDir * Court.HALF_WIDTH / 2) + (Math.random() - 0.5) * (Court.HALF_WIDTH * 0.8);
     }
 
-    const startPos = { x: this.opponent.x, y: 1.5, z: this.opponent.z };
+    const startPos = (aiShot.shotType === SHOT_TYPES.SERVE)
+      ? { x: this.opponent.x + (this.opponent.x > 0 ? -0.25 : 0.25), y: 1.2, z: this.opponent.z - 0.3 }
+      : { x: this.shuttlecock.x, y: Math.max(0.4, this.shuttlecock.y), z: this.shuttlecock.z };
     this.shuttlecock.launch(aiShot.shotType, startPos, aiShot.targetPos, aiShot.power, 'opponent', quality);
 
     const isSmash = aiShot.shotType === SHOT_TYPES.SMASH;

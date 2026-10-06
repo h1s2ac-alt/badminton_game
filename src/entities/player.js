@@ -112,14 +112,21 @@ export class Player {
 
     // If shuttlecock is flying toward player side (z < 0)
     if (shuttlecock.lastHitter === 'opponent' && shuttlecock.trajectory) {
-      const targetX = shuttlecock.trajectory.target.x;
-      const targetZ = clamp(shuttlecock.trajectory.target.z, Court.BASELINE_PLAYER + 0.5, -0.5);
+      const landingX = clamp(shuttlecock.trajectory.target.x, -Court.HALF_WIDTH + 0.35, Court.HALF_WIDTH - 0.35);
+      const landingZ = clamp(shuttlecock.trajectory.target.z, Court.BASELINE_PLAYER + 0.4, -0.6);
 
-      const t = shuttlecock.trajectory.elapsed / shuttlecock.trajectory.duration;
-      const desX = lerp(shuttlecock.x, targetX, t * 0.7);
-      const desZ = lerp(shuttlecock.z, targetZ, t * 0.7);
+      let desX = landingX;
+      let desZ = landingZ;
+      if (shuttlecock.z < -0.8) {
+        desX = lerp(landingX, shuttlecock.x, 0.35);
+        desZ = lerp(landingZ, shuttlecock.z, 0.25);
+      }
 
       this.moveTo(desX, desZ, dt);
+    } else if (shuttlecock.lastHitter === 'player' && isRallyActive) {
+      // Smoothly drift back towards home base position after hitting
+      const home = Court.getHomePosition('player');
+      this.moveTo(home.x * 0.25 + this.x * 0.75, home.z * 0.25 + this.z * 0.75, dt * 0.7);
     }
   }
 }

@@ -348,9 +348,10 @@ export class Character3D {
     rightSweatband.position.y = -0.27;
     this.rightArmGroup.add(rightSweatband);
 
-    // ── 6. Badminton Racket ──────────────────────────────────────────────
+    // ── 6. Badminton Racket (High-Visibility Arcade Scale) ──────────────
     this.racketGroup = new THREE.Group();
     this.racketGroup.position.set(0, -0.32, 0); // Held firmly in hand
+    this.racketGroup.scale.set(1.45, 1.45, 1.45); // 1.45x arcade scale for crisp visibility
     this.rightArmGroup.add(this.racketGroup);
 
     // Grip
@@ -365,8 +366,8 @@ export class Character3D {
     const shaft = new THREE.Mesh(shaftGeo, this.racketShaftMat);
     this.racketGroup.add(shaft);
 
-    // Racket Head (Pink oval frame)
-    const headFrameGeo = new THREE.TorusGeometry(0.125, 0.013, 10, 26);
+    // Racket Head (Vibrant neon frame)
+    const headFrameGeo = new THREE.TorusGeometry(0.125, 0.015, 10, 26);
     headFrameGeo.scale(1.0, 1.36, 1.0);
     headFrameGeo.translate(0, 0.62, 0);
     const headFrame = new THREE.Mesh(headFrameGeo, this.racketFrameMat);
@@ -379,8 +380,8 @@ export class Character3D {
     const stringBed = new THREE.Mesh(stringGeo, this.stringMat);
     this.racketGroup.add(stringBed);
 
-    // Racket Motion Swoosh Blade (visible during powerful swing impact)
-    const swooshGeo = new THREE.RingGeometry(0.12, 0.28, 16, 1, 0, Math.PI * 0.85);
+    // Racket Motion Swoosh Blade (vivid wide sweeping ribbon arc during swing)
+    const swooshGeo = new THREE.RingGeometry(0.12, 0.50, 24, 1, 0, Math.PI * 1.2);
     swooshGeo.translate(0, 0.62, 0);
     this.swooshMesh = new THREE.Mesh(swooshGeo, this.swooshMat);
     this.swooshMesh.visible = false;

@@ -41,14 +41,17 @@ export class AIController {
       }
     }
 
-    // Move opponent toward target intercept spot
+    // Move opponent smoothly toward target intercept spot on opponent court
     if (shuttlecock.trajectory) {
-      const targetX = shuttlecock.trajectory.target.x;
-      const targetZ = clamp(shuttlecock.trajectory.target.z, 0.5, Court.BASELINE_OPPONENT - 0.2);
+      const targetX = clamp(shuttlecock.trajectory.target.x, -Court.HALF_WIDTH + 0.35, Court.HALF_WIDTH - 0.35);
+      const targetZ = clamp(shuttlecock.trajectory.target.z, 0.6, Court.BASELINE_OPPONENT - 0.3);
 
-      const t = shuttlecock.trajectory.elapsed / shuttlecock.trajectory.duration;
-      const desX = lerp(shuttlecock.x, targetX, t * 0.8);
-      const desZ = lerp(shuttlecock.z, targetZ, t * 0.8);
+      let desX = targetX;
+      let desZ = targetZ;
+      if (shuttlecock.z > 0.8) {
+        desX = lerp(targetX, shuttlecock.x, 0.35);
+        desZ = lerp(targetZ, shuttlecock.z, 0.25);
+      }
 
       this.opponent.moveTo(desX, desZ, dt);
     }
