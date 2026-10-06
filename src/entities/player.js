@@ -66,19 +66,19 @@ export class Player {
   triggerSwing(shotType = 'CLEAR') {
     this.animState = 'SWINGING';
     this.currentShotType = shotType;
-    this.animTimer = 0.58; 
-    this.swingDuration = 0.58;
+    this.animTimer = 0.32; 
+    this.swingDuration = 0.32;
   }
 
   triggerWhiff() {
-    this.animState = 'WHIFF';
-    this.animTimer = 0.5;
+    // Air swing: character visibly swings through the air immediately!
+    this.triggerSwing('CLEAR');
   }
 
   triggerStumble() {
-    this.animState = 'STUMBLE';
-    this.animTimer = 1.0; // 1-second recovery penalty
-    this.stumbleTimer = 1.0;
+    // When hitting off-balance, still swing through the hit, but incur movement slowdown
+    this.triggerSwing('CLEAR');
+    this.stumbleTimer = 0.8;
   }
 
   triggerCelebrate() {

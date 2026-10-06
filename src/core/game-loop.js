@@ -24,7 +24,8 @@ export class GameEngine {
     this.bannerTimer = 0;
     this.serveTimer = 0;
     this.freezeFrames = 0; // For Hit-Stop effect (Item #2)
-    this._swingCooldown = 0; // Prevents rapid re-fire of player swings
+    this._shotCooldown = 0; // Prevents hitting own shot twice
+    this._whiffDebounce = 0; // Quick debounce for key chatter on air swings
 
     this._bindInput();
   }
@@ -35,14 +36,12 @@ export class GameEngine {
   }
 
   _handlePlayerAction() {
-    // Prevent rapid re-fires (double-click, key repeat, double-event)
-    if (this._swingCooldown > 0) return;
-
     if (this.state === GAME_STATES.PRE_SERVE) {
       if (this.score.server === 'player') {
+        if (this._shotCooldown > 0) return;
         this._executePlayerShot({ shotType: SHOT_TYPES.SERVE, power: 0.9, sideBias: 0 }, true);
         this.state = GAME_STATES.RALLY;
-        this._swingCooldown = 0.5;
+        this._shotCooldown = 0.28;
       }
       return;
     }
@@ -56,6 +55,8 @@ export class GameEngine {
     if (this.state !== GAME_STATES.RALLY) return;
 
     if (this.shuttlecock.isHittableBy('player', this.player)) {
+      if (this._shotCooldown > 0) return;
+
       const dx = this.shuttlecock.x - this.player.x;
       const dz = this.shuttlecock.z - this.player.z;
       const dist = Math.hypot(dx, dz);
@@ -70,14 +71,14 @@ export class GameEngine {
       let shotType = SHOT_TYPES.CLEAR;
 
       // 1. EARLY SWING (Contact out in front -> Racket angles CROSS-COURT)
-      if (zTiming > 0.28) {
+      if (zTiming > 0.25) {
         // Cross-court aim (opposite side from player's current side)
         const crossSide = this.player.x >= 0 ? -1 : 1;
         sideBias = crossSide * 0.80;
         timingLabel = 'EARLY (CROSS-COURT)';
         timingColor = '#06B6D4'; // Vibrant Cyan
 
-        if (this.shuttlecock.y > 2.1 && dist < 1.4) {
+        if (this.shuttlecock.y > 2.0 && dist < 1.15) {
           shotType = SHOT_TYPES.SMASH;
         } else if (this.shuttlecock.z > -2.2) {
           shotType = SHOT_TYPES.DROP;
@@ -86,13 +87,13 @@ export class GameEngine {
         }
       }
       // 2. PERFECT / SWEET-SPOT SWING (Direct contact in optimal pocket)
-      else if (zTiming >= -0.32) {
+      else if (zTiming >= -0.15) {
         quality = 'PERFECT';
         // Aim smartly away from opponent's current location to open court
         const openCourtSide = this.opponent.x >= 0 ? -1 : 1;
         sideBias = openCourtSide * 0.72;
 
-        if (this.shuttlecock.y > 2.0 && dist < 1.4) {
+        if (this.shuttlecock.y > 1.9 && dist < 1.15) {
           shotType = SHOT_TYPES.SMASH;
           timingLabel = 'PERFECT! (SMASH!)';
           timingColor = '#FACC15'; // Radiant Gold
@@ -107,14 +108,14 @@ export class GameEngine {
         }
       }
       // 3. LATE SWING (Contact behind player -> Racket pushes DOWN THE LINE)
-      else if (zTiming >= -0.75) {
+      else if (zTiming >= -0.40) {
         // Down the line (same side of court as player)
         const lineSide = this.player.x >= 0 ? 1 : -1;
         sideBias = lineSide * 0.74;
         timingLabel = 'LATE (DOWN-THE-LINE)';
         timingColor = '#FB923C'; // Warm Orange
 
-        if (this.shuttlecock.y > 2.2) {
+        if (this.shuttlecock.y > 2.1) {
           shotType = SHOT_TYPES.CLEAR;
         } else {
           shotType = SHOT_TYPES.DRIVE;
@@ -135,17 +136,20 @@ export class GameEngine {
         sideBias,
       }, false, quality, timingLabel, timingColor);
 
-      // Prevent re-triggering until the shot is well underway
-      this._swingCooldown = 0.5;
+      // Shot cooldown prevents double-hitting the same shot
+      this._shotCooldown = 0.28;
+      this._whiffDebounce = 0;
     } else {
-      // Whiff
+      // Whiff / Air Swing (Shuttlecock not yet in reach)
+      if (this._whiffDebounce > 0) return;
+
       this.player.triggerWhiff();
       this.renderer.effectsRenderer.addHitText(
         { x: this.player.x, y: 1.5, z: this.player.z },
         'MISS!',
         '#EF4444'
       );
-      this._swingCooldown = 0.3; // Short cooldown after whiff too
+      this._whiffDebounce = 0.05; // Quick 50ms key chatter debounce only, no shot lockout!
     }
   }
 
@@ -193,9 +197,10 @@ export class GameEngine {
   _handlePlayerSwipe(swipe) {
     if (this.state === GAME_STATES.PRE_SERVE) {
       if (this.score.server === 'player') {
-        // Player serves with directional control (Item #3)
+        if (this._shotCooldown > 0) return;
         this._executePlayerShot(swipe, true);
         this.state = GAME_STATES.RALLY;
+        this._shotCooldown = 0.28;
       }
       return;
     }
@@ -203,7 +208,8 @@ export class GameEngine {
     if (this.state !== GAME_STATES.RALLY) return;
 
     if (this.shuttlecock.isHittableBy('player', this.player)) {
-      // Calculate hit quality based on distance (Items #3 & #4)
+      if (this._shotCooldown > 0) return;
+
       const dx = this.shuttlecock.x - this.player.x;
       const dz = this.shuttlecock.z - this.player.z;
       const dist = Math.hypot(dx, dz);
@@ -211,22 +217,24 @@ export class GameEngine {
       let quality = 'GOOD';
       if (dist < 0.6) {
         quality = 'PERFECT';
-      } else if (dist > 1.4) {
+      } else if (dist > 1.1) {
         quality = 'POOR';
       }
 
       this._executePlayerShot(swipe, false, quality);
+      this._shotCooldown = 0.28;
+      this._whiffDebounce = 0;
     } else {
-      // Whiff!
+      if (this._whiffDebounce > 0) return;
       this.player.triggerWhiff();
       this.renderer.effectsRenderer.addHitText({ x: this.player.x, y: 1.5, z: this.player.z }, 'MISS!', '#EF4444');
+      this._whiffDebounce = 0.05;
     }
   }
 
   _executePlayerShot(swipe, isServe = false, quality = 'GOOD', timingLabel = null, timingColor = null) {
     if (quality === 'POOR' && !isServe) {
-      this.player.triggerStumble(); // Stumble mechanic
-      // Force weak clear on stumble
+      this.player.triggerStumble(); // Stumble mechanic (slowdown, still plays swing)
       swipe.shotType = SHOT_TYPES.CLEAR; 
       swipe.power = 0.6;
     } else {
@@ -352,9 +360,12 @@ export class GameEngine {
 
     this.renderer.effectsRenderer.update(dt);
 
-    // Tick down swing cooldown
-    if (this._swingCooldown > 0) {
-      this._swingCooldown = Math.max(0, this._swingCooldown - dt);
+    // Tick down shot cooldown & whiff debounce
+    if (this._shotCooldown > 0) {
+      this._shotCooldown = Math.max(0, this._shotCooldown - dt);
+    }
+    if (this._whiffDebounce > 0) {
+      this._whiffDebounce = Math.max(0, this._whiffDebounce - dt);
     }
 
     if (this.freezeFrames > 0) {

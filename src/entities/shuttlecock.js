@@ -115,13 +115,13 @@ export class Shuttlecock {
     const horizontalDist = Math.hypot(xDiff, zDiff);
 
     // Realistic racket reach:
-    // Arm + racket length is ~1.1m. Allow up to 1.35m horizontal distance.
-    // Also enforce forward/backward Z reach relative to character facing direction.
-    // For player (facing +Z): shuttlecock must be between -0.45m behind and +0.80m in front.
+    // Arm + racket extends ~0.85m. Allow up to 1.15m realistic reach pocket.
+    // Enforce forward/backward reach relative to character facing direction:
+    // Shuttlecock must be between -0.40m (late hit) and +0.65m (forward extension)
     const zOffset = role === 'player' ? (this.z - characterPos.z) : (characterPos.z - this.z);
-    const zInReach = zOffset >= -0.45 && zOffset <= 0.80;
+    const zInReach = zOffset >= -0.40 && zOffset <= 0.65;
 
-    return horizontalDist < 1.35 && zInReach && this.y >= 0.2 && this.y <= 3.8;
+    return horizontalDist < 1.15 && zInReach && this.y >= 0.25 && this.y <= 3.4;
   }
 
   getRemainingTime() {
