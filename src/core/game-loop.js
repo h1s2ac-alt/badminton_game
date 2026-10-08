@@ -383,7 +383,10 @@ export class GameEngine {
       return;
     }
 
+    const moveInput = this.input.getMovementVector();
+
     if (this.state === GAME_STATES.PRE_SERVE) {
+      this.player.update(dt, null, false, moveInput);
       if (this.score.server === 'opponent') {
         this.serveTimer += dt;
         if (this.serveTimer >= 1.2) {
@@ -398,7 +401,7 @@ export class GameEngine {
       }
     } else if (this.state === GAME_STATES.RALLY) {
       this.shuttlecock.update(dt);
-      this.player.update(dt, this.shuttlecock, true);
+      this.player.update(dt, this.shuttlecock, true, moveInput);
       this.opponent.update(dt);
 
       this.ai.update(dt, this.shuttlecock, this.player, (aiShot) => this._executeAIShot(aiShot));
@@ -407,7 +410,7 @@ export class GameEngine {
         this._resolvePoint();
       }
     } else if (this.state === GAME_STATES.POINT_SCORED) {
-      this.player.update(dt, null, false);
+      this.player.update(dt, null, false, null);
       this.opponent.update(dt);
       this.bannerTimer -= dt;
       if (this.bannerTimer <= 0) {

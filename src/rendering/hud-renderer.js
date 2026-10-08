@@ -134,17 +134,59 @@ export class HUDRenderer {
       }
       ctx.restore();
     } else if (gameState.state === GAME_STATES.RALLY) {
-      if (gameState.shuttlecock && gameState.shuttlecock.lastHitter === 'opponent') {
+      if (gameState.shuttlecock && gameState.shuttlecock.lastHitter === 'opponent' && gameState.shuttlecock.inFlight) {
         ctx.save();
         ctx.textAlign = 'center';
-        ctx.font = '700 17px sans-serif';
-        ctx.fillStyle = '#67E8F9';
-        ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
-        ctx.shadowBlur = 6;
-        ctx.fillText('PRESS SPACE / TAP TO SWING', w / 2, h * 0.78);
+
+        const s = gameState.shuttlecock;
+        const p = gameState.player;
+        const canHit = (p && s.isHittableBy) ? s.isHittableBy('player', p) : false;
+        const zTiming = p ? (s.z - p.z) : 0;
+        const inSweetSpot = canHit && (zTiming >= -0.15 && zTiming <= 0.28);
+        const isLate = canHit && (zTiming < -0.15);
+
+        if (inSweetSpot) {
+          ctx.font = '900 24px sans-serif';
+          ctx.fillStyle = '#22C55E';
+          ctx.shadowColor = '#15803D';
+          ctx.shadowBlur = 12;
+          ctx.fillText('⚡ SWEET SPOT! HIT NOW! ⚡', w / 2, h * 0.77);
+        } else if (isLate) {
+          ctx.font = '800 20px sans-serif';
+          ctx.fillStyle = '#FB923C';
+          ctx.shadowColor = '#C2410C';
+          ctx.shadowBlur = 8;
+          ctx.fillText('HIT LATE!', w / 2, h * 0.77);
+        } else {
+          ctx.font = '700 17px sans-serif';
+          ctx.fillStyle = '#67E8F9';
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+          ctx.shadowBlur = 6;
+          ctx.fillText('PRESS SPACE / TAP TO SWING', w / 2, h * 0.78);
+        }
         ctx.restore();
       }
     }
+
+    // --- 3. Controls Hint Badge (Bottom Right) ---
+    ctx.save();
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    ctx.lineWidth = 1;
+    const badgeW = 264;
+    const badgeH = 26;
+    const badgeX = w - badgeW - 20;
+    const badgeY = h - 35;
+    ctx.beginPath();
+    ctx.roundRect(badgeX, badgeY, badgeW, badgeH, [8]);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = '600 11px sans-serif';
+    ctx.fillStyle = '#94A3B8';
+    ctx.textAlign = 'center';
+    ctx.fillText('WASD / ARROWS : Footwork  •  SPACE : Swing', badgeX + badgeW / 2, badgeY + 17);
+    ctx.restore();
 
     // --- 4. Round Result Banner ---
     if (gameState.bannerMessage) {

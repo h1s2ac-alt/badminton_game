@@ -8,6 +8,7 @@ export class InputManager {
     this.startTime = 0;
     this.swipeListeners = [];
     this.tapListeners = [];
+    this.keys = {};
 
     this._bindEvents();
     this._bindSwingButton();
@@ -19,6 +20,22 @@ export class InputManager {
 
   onTap(fn) {
     this.tapListeners.push(fn);
+  }
+
+  getMovementVector() {
+    let dx = 0;
+    let dz = 0;
+    if (this.keys['KeyA'] || this.keys['ArrowLeft']) dx -= 1;
+    if (this.keys['KeyD'] || this.keys['ArrowRight']) dx += 1;
+    // For player facing +Z towards net: W/Up is forward (+Z), S/Down is backward (-Z)
+    if (this.keys['KeyW'] || this.keys['ArrowUp']) dz += 1;
+    if (this.keys['KeyS'] || this.keys['ArrowDown']) dz -= 1;
+
+    const len = Math.hypot(dx, dz);
+    if (len > 0) {
+      return { dx: dx / len, dz: dz / len, active: true };
+    }
+    return { dx: 0, dz: 0, active: false };
   }
 
   _triggerTap(x = window.innerWidth / 2, y = window.innerHeight * 0.75) {
@@ -50,12 +67,26 @@ export class InputManager {
   }
 
   _bindEvents() {
-    // 1. Keyboard Spacebar for instant swinging
+    // 1. Keyboard Spacebar for swinging & WASD / Arrow keys for footwork
     window.addEventListener('keydown', (e) => {
-      if (e.repeat) return; // Ignore auto-repeat from holding key down
       if (e.code === 'Space' || e.key === ' ' || e.code === 'KeyZ' || e.code === 'Enter') {
+        if (!e.repeat) {
+          e.preventDefault();
+          this._triggerTap();
+        }
+        return;
+      }
+
+      if (['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+        this.keys[e.code] = true;
         e.preventDefault();
-        this._triggerTap();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+        this.keys[e.code] = false;
+        e.preventDefault();
       }
     });
 

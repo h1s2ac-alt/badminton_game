@@ -36,7 +36,8 @@ export class Renderer {
 
   _initThree() {
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x8B7355); // Warm gym wall color
+    this.scene.background = new THREE.Color(0x0A0F1D); // Modern tournament stadium atmosphere
+    this.scene.fog = new THREE.FogExp2(0x0A0F1D, 0.012);
 
     // Elevated broadcast camera looking down over player's head (unobstructed view of shuttle, racket, & net)
     this.camera = new THREE.PerspectiveCamera(48, this.width / this.height, 0.1, 100);
@@ -133,8 +134,11 @@ export class Renderer {
       this.opponent3D.update(gameState.opponent, 0.016);
     }
 
-    // 2. Update 3D Shuttlecock & landing reticle
-    this.shuttle3D.update(gameState.shuttlecock);
+    // 2. Update 3D Court, Shuttlecock & sweet-spot timing reticle
+    if (this.court3D.update) {
+      this.court3D.update(0.016);
+    }
+    this.shuttle3D.update(gameState.shuttlecock, gameState.player);
 
     // 3. Render Three.js 3D WebGL scene with real-time shadow maps
     this.threeRenderer.render(this.scene, this.camera);
