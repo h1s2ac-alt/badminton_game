@@ -20,6 +20,7 @@ export class Opponent {
 
     // Stamina system (0.0 to 1.0)
     this.stamina = 1.0;
+    this.stumbleTimer = 0;
   }
 
   setDifficulty(key) {
@@ -43,6 +44,7 @@ export class Opponent {
     this.animTimer = 0;
     this.runAnimTime = 0;
     this.stamina = 1.0;
+    this.stumbleTimer = 0;
   }
 
   consumeStamina(amount) {

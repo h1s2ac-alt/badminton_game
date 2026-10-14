@@ -25,6 +25,9 @@ export class AIController {
     // Only process if shuttlecock was hit by player and is coming toward opponent
     if (shuttlecock.lastHitter !== 'player') {
       this.reset();
+      // Smoothly drift back towards home base position after hitting
+      const home = Court.getHomePosition('opponent');
+      this.opponent.moveTo(home.x, home.z, dt * 0.75);
       return;
     }
 
@@ -49,8 +52,8 @@ export class AIController {
       const idealX = target.x + 0.25;
       const idealZ = target.z + 0.35;
 
-      const desX = clamp(idealX, -Court.HALF_WIDTH + 0.35, Court.HALF_WIDTH - 0.35);
-      const desZ = clamp(idealZ, 0.6, Court.BASELINE_OPPONENT - 0.35);
+      const desX = clamp(idealX, -Court.HALF_WIDTH - 0.3, Court.HALF_WIDTH + 0.3);
+      const desZ = clamp(idealZ, 0.4, Court.BASELINE_OPPONENT + 0.3);
 
       this.opponent.moveTo(desX, desZ, dt);
     }
@@ -70,14 +73,17 @@ export class AIController {
 
     // Determine shot type
     let shotType = SHOT_TYPES.CLEAR;
-    const isHigh = shuttlecock.y > 2.5;
+    const isHigh = shuttlecock.y > 2.3;
+    const isCloseToNet = (shuttlecock.z < 2.2 && shuttlecock.y < 1.6);
 
     if (isHigh && Math.random() < cfg.smashChance) {
       shotType = SHOT_TYPES.SMASH;
+    } else if (isCloseToNet && Math.random() < 0.35) {
+      shotType = SHOT_TYPES.NET;
     } else {
       const rand = Math.random();
-      if (rand < 0.4) shotType = SHOT_TYPES.CLEAR;
-      else if (rand < 0.7) shotType = SHOT_TYPES.DROP;
+      if (rand < 0.35) shotType = SHOT_TYPES.CLEAR;
+      else if (rand < 0.65) shotType = SHOT_TYPES.DROP;
       else shotType = SHOT_TYPES.DRIVE;
     }
 
@@ -87,23 +93,39 @@ export class AIController {
       targetX = Math.random() < 0.5 ? -1.8 : 1.8;
     }
 
-    // Add difficulty-based inaccuracy
-    const err = (Math.random() - 0.5) * 2.0 * cfg.accuracyErr * Court.HALF_WIDTH;
-    targetX = clamp(targetX + err, -Court.HALF_WIDTH + 0.3, Court.HALF_WIDTH - 0.3);
+    // Add difficulty-based inaccuracy: allows realistic unforced errors to land OUT!
+    const errX = (Math.random() - 0.5) * 2.2 * cfg.accuracyErr * Court.HALF_WIDTH;
+    targetX = clamp(targetX + errX, -Court.HALF_WIDTH - 0.5, Court.HALF_WIDTH + 0.5);
 
     let targetZ = -4.5;
-    if (shotType === SHOT_TYPES.DROP || shotType === SHOT_TYPES.NET) {
-      targetZ = -COURT.SHORT_SERVICE_DIST - 0.5;
+    let power = 0.95;
+
+    if (shotType === SHOT_TYPES.NET) {
+      targetZ = -COURT.SHORT_SERVICE_DIST + 0.35;
+      power = 0.52 + (Math.random() - 0.5) * 0.1;
+    } else if (shotType === SHOT_TYPES.DROP) {
+      targetZ = -COURT.SHORT_SERVICE_DIST - 0.45;
+      power = 0.65 + (Math.random() - 0.5) * 0.1;
     } else if (shotType === SHOT_TYPES.SMASH) {
-      targetZ = -3.5;
+      targetZ = -3.2;
+      power = 1.08 + (Math.random() - 0.5) * 0.1;
+    } else if (shotType === SHOT_TYPES.DRIVE) {
+      targetZ = -4.0;
+      power = 0.88 + (Math.random() - 0.5) * 0.1;
     } else {
-      targetZ = Court.BASELINE_PLAYER + 0.5;
+      // CLEAR
+      targetZ = Court.BASELINE_PLAYER + 0.55;
+      power = 0.98 + (Math.random() - 0.5) * 0.1;
     }
+
+    // Apply Z depth error as well so overhits can go deep
+    const errZ = (Math.random() - 0.5) * 2.0 * cfg.accuracyErr;
+    targetZ = clamp(targetZ + errZ, Court.BASELINE_PLAYER - 0.8, -0.6);
 
     return {
       shotType,
       targetPos: { x: targetX, y: 0, z: targetZ },
-      power: 1.0,
+      power,
     };
   }
 }

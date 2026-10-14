@@ -20,6 +20,7 @@ export class Player {
     this.skinColor = '#FDE047';
 
     this.stamina = 1.0;
+    this.stumbleTimer = 0;
     this.hasConnected = false;
   }
 
@@ -34,6 +35,7 @@ export class Player {
     this.animTimer = 0;
     this.runAnimTime = 0;
     this.stamina = 1.0;
+    this.stumbleTimer = 0;
     this.hasConnected = false;
   }
 

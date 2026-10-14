@@ -9,7 +9,7 @@ export class HUDRenderer {
     this.opponentFlashTimer = 0;
   }
 
-  render(gameState) {
+  render(gameState, dt = 0.016) {
     const ctx = this.r.ctx;
     const w = this.r.width;
     const h = this.r.height;
@@ -28,7 +28,6 @@ export class HUDRenderer {
       this.opponentFlashTimer = 0.5;
     }
 
-    const dt = 0.016; // approx frame time
     if (this.playerFlashTimer > 0) this.playerFlashTimer -= dt;
     if (this.opponentFlashTimer > 0) this.opponentFlashTimer -= dt;
 

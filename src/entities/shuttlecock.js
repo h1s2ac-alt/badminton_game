@@ -84,18 +84,28 @@ export class Shuttlecock {
       this.vz = (this.z - this._prevZ) / dt;
     }
 
-    // Save trail position history (last 6 positions)
+    // Save trail position history (last 18 positions for vibrant visible arc)
     this.trailHistory.push({ x: this.x, y: this.y, z: this.z });
-    if (this.trailHistory.length > 6) {
+    if (this.trailHistory.length > 18) {
       this.trailHistory.shift();
     }
 
-    // Net Fault Check (item #2)
+    // Precise Net Fault Check: interpolate exact height at the Z=0 net plane
     if ((prevZ < 0 && this.z >= 0) || (prevZ > 0 && this.z <= 0)) {
-      if (this.y <= COURT.NET_HEIGHT) {
+      const zTravel = Math.abs(this.z - prevZ);
+      const tCross = zTravel > 0.0001 ? Math.abs(prevZ) / zTravel : 0.5;
+      const yAtNet = this._prevY + (this.y - this._prevY) * tCross;
+      const xAtNet = this._prevX + (this.x - this._prevX) * tCross;
+
+      // Realistic net sag: 1.55m at outer posts (x = ±2.59m) to 1.524m at center (x = 0)
+      const postRatio = Math.min(1.0, Math.abs(xAtNet) / 2.59);
+      const netHeight = 1.524 + 0.026 * (postRatio * postRatio);
+
+      if (yAtNet <= netHeight) {
         this.hitNet = true;
         this.inFlight = false;
         this.landed = true;
+        this.y = Math.min(this.y, netHeight);
         return;
       }
     }

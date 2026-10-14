@@ -260,8 +260,13 @@ export class Shuttle3D {
       const hitProgress = contactDuration > 0 ? (traj.elapsed / contactDuration) : 0;
 
       if (target) {
+        // Position reticle at the racket intercept zone (not the terminal floor bounce point!)
+        const optPos = traj.getPositionAt ? traj.getPositionAt(tOpt) : target;
+        const markerX = optPos ? optPos.x : target.x;
+        const markerZ = optPos ? optPos.z : target.z;
+
         this.landingRing.visible = true;
-        this.landingRing.position.set(-target.x, 0.005, target.z);
+        this.landingRing.position.set(-markerX, 0.005, markerZ);
 
         // Contracting countdown wave: starts wide (2.55x) and contracts smoothly to target (1.0x at sweet spot!)
         const contractScale = Math.max(0.95, 1.0 + Math.max(0, 1.0 - hitProgress) * 1.55);

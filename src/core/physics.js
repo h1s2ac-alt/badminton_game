@@ -46,12 +46,14 @@ export class Trajectory {
         tNet = clamp(-Math.log(arg) / this.dragK, 0.1, 0.9);
       }
 
-      // Check height at net: short serves clear tape cleanly; high serves/clears soar above
-      let minNetClearance = COURT.NET_HEIGHT + 0.12;
+      // Check height at net: short serves skim tape cleanly by 3-5cm; high serves/clears soar above
+      let minNetClearance = COURT.NET_HEIGHT + 0.08;
       if (shotType === SHOT_TYPES.SERVE_SHORT) {
-        minNetClearance = COURT.NET_HEIGHT + 0.16; // 1.71m (skims tape by 16cm)
+        minNetClearance = COURT.NET_HEIGHT + 0.03; // Skims tape cleanly by 3cm
       } else if (shotType === SHOT_TYPES.SERVE_HIGH || shotType === SHOT_TYPES.CLEAR) {
         minNetClearance = 3.6;
+      } else if (shotType === SHOT_TYPES.SMASH) {
+        minNetClearance = COURT.NET_HEIGHT + 0.05;
       }
 
       let attempts = 0;
@@ -116,7 +118,7 @@ export class Trajectory {
       case SHOT_TYPES.SERVE_SHORT:
         return {
           duration: 1.35, // Authentic short backhand flick skimming the tape into front court
-          apexHeight: COURT.NET_HEIGHT + 0.16,
+          apexHeight: COURT.NET_HEIGHT + 0.04,
           dragK: 1.8,
           hangFactor: 1.0,
         };
@@ -169,10 +171,12 @@ export class Trajectory {
 
     let y;
     if (this.shotType === SHOT_TYPES.SMASH) {
-      // Steep downward trajectory: drives forward-downward toward floor
-      const smashDip = Math.pow(clampedT, 1.25);
-      const arcLift = Math.sin(Math.PI * clampedT) * 0.45;
-      y = Math.max(0, lerp(this.start.y, this.target.y, smashDip) + arcLift);
+      // Direct, steep downward vector towards floor
+      const smashDip = Math.pow(clampedT, 1.15);
+      const linearY = lerp(this.start.y, this.target.y, smashDip);
+      // Net boost only if apex was raised to clear the net tape
+      const netBoost = Math.max(0, this.apexHeight - Math.max(this.start.y, this.target.y)) * Math.sin(Math.PI * clampedT);
+      y = Math.max(0, linearY + netBoost);
     } else {
       // Characteristic badminton high arc with late vertical dive
       // Parabolic arc adjusted for drag deceleration

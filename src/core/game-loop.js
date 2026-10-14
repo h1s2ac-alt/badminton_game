@@ -26,6 +26,8 @@ export class GameEngine {
     this.freezeFrames = 0; // For Hit-Stop effect (Item #2)
     this._shotCooldown = 0; // Prevents hitting own shot twice
     this._whiffDebounce = 0; // Quick debounce for key chatter on air swings
+    this._pendingSwipe = null; // Stores swipe data for active swing frame detection
+    this._isServe = false; // Tracks if current in-flight shot is a serve
 
     this._bindInput();
   }
@@ -287,6 +289,7 @@ export class GameEngine {
     const targetPos = { x: targetX, y: 0, z: targetZ };
 
     const shotType = isServe ? swipe.shotType : swipe.shotType;
+    this._isServe = isServe;
     this.shuttlecock.launch(shotType, startPos, targetPos, finalPower, 'player', quality);
 
     // Impact particles for every hit; text + shake only for smashes
@@ -332,10 +335,7 @@ export class GameEngine {
       this.opponent.triggerSwing(aiShot.shotType);
     }
 
-    if (isServeShot) {
-      const serveDir = this.opponent.x > 0 ? -1 : 1;
-      aiShot.targetPos.x = (serveDir * Court.HALF_WIDTH / 2) + (Math.random() - 0.5) * (Court.HALF_WIDTH * 0.8);
-    }
+    this._isServe = isServeShot;
 
     const startPos = isServeShot
       ? { x: this.opponent.x + 0.18, y: 1.05, z: this.opponent.z - 0.32 }
@@ -470,7 +470,7 @@ export class GameEngine {
       score: this.score,
       bannerMessage: this.bannerMessage,
       bannerColor: this.bannerColor,
-    });
+    }, dt);
   }
 
   _resolvePoint() {
@@ -480,7 +480,7 @@ export class GameEngine {
     let winner = null;
     let reason = '';
 
-    // Net Faults
+    // 1. Net Faults
     if (s.hitNet) {
       if (s.lastHitter === 'player') {
         winner = 'opponent';
@@ -489,21 +489,43 @@ export class GameEngine {
         winner = 'player';
         reason = 'NET FAULT! POINT PLAYER!';
       }
-    } else if (s.lastHitter === 'player') {
-      if (inBounds && s.z > 0) {
-        winner = 'player';
-        reason = 'POINT PLAYER!';
-      } else {
+    }
+    // 2. Player was last hitter
+    else if (s.lastHitter === 'player') {
+      if (s.z <= 0) {
+        // Landed on player's own half of court
+        winner = 'opponent';
+        reason = 'FAULT! POINT CPU!';
+      } else if (!inBounds) {
+        // Flew beyond boundaries
         winner = 'opponent';
         reason = 'OUT! POINT CPU!';
-      }
-    } else {
-      if (inBounds && s.z < 0) {
+      } else if (this._isServe && s.z < COURT.SHORT_SERVICE_DIST) {
+        // Serve failed to cross the short service line (kitchen fault)
         winner = 'opponent';
-        reason = 'POINT CPU!';
+        reason = 'SHORT SERVE! POINT CPU!';
       } else {
         winner = 'player';
+        reason = 'POINT PLAYER!';
+      }
+    }
+    // 3. Opponent was last hitter
+    else {
+      if (s.z >= 0) {
+        // Landed on opponent's own half of court
+        winner = 'player';
+        reason = 'FAULT! POINT PLAYER!';
+      } else if (!inBounds) {
+        // Flew beyond boundaries
+        winner = 'player';
         reason = 'OUT! POINT PLAYER!';
+      } else if (this._isServe && s.z > -COURT.SHORT_SERVICE_DIST) {
+        // Opponent serve failed to cross short service line
+        winner = 'player';
+        reason = 'SHORT SERVE! POINT PLAYER!';
+      } else {
+        winner = 'opponent';
+        reason = 'POINT CPU!';
       }
     }
 

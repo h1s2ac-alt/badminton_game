@@ -101,25 +101,28 @@ export class InputManager {
 
     // 3. Touch events
     this.canvas.addEventListener('touchstart', (e) => {
+      if (e.cancelable) e.preventDefault();
       if (e.touches.length > 0) {
         const t = e.touches[0];
         this._onPointerStart(t.clientX, t.clientY);
       }
-    }, { passive: true });
+    }, { passive: false });
 
     window.addEventListener('touchmove', (e) => {
+      if (e.cancelable) e.preventDefault();
       if (this.isMouseDown && e.touches.length > 0) {
         const t = e.touches[0];
         this._onPointerMove(t.clientX, t.clientY);
       }
-    }, { passive: true });
+    }, { passive: false });
 
     window.addEventListener('touchend', (e) => {
+      if (e.cancelable) e.preventDefault();
       if (e.changedTouches.length > 0) {
         const t = e.changedTouches[0];
         this._onPointerEnd(t.clientX, t.clientY);
       }
-    }, { passive: true });
+    }, { passive: false });
   }
 
   _onPointerStart(x, y) {
@@ -137,20 +140,14 @@ export class InputManager {
     this.isMouseDown = false;
 
     const endTime = performance.now();
-    const duration = (endTime - this.startTime) / 1000; // in seconds
+    const duration = Math.max(0.04, (endTime - this.startTime) / 1000); // in seconds
 
     const dx = x - this.startPos.x;
     const dy = y - this.startPos.y;
     const dist = Math.hypot(dx, dy);
 
-    // Any click or tap (small distance or short duration) triggers a tap/swing!
-    if (dist < 35 || duration < 0.35) {
-      this._triggerTap(x, y);
-      return;
-    }
-
-    // Minimum swipe threshold for directional swiping
-    if (dist < 40) {
+    // If movement is minimal (< 30px), treat as tap/swing!
+    if (dist < 30) {
       this._triggerTap(x, y);
       return;
     }
@@ -159,8 +156,9 @@ export class InputManager {
     let angleRad = Math.atan2(dy, dx);
     let angleDeg = (angleRad * 180 / Math.PI + 360) % 360;
 
-    const velocity = dist / Math.max(0.05, duration);
-    const power = Math.min(1.2, velocity / 1200);
+    // Calibrated swipe velocity: reachable on both mobile screens and mouse flicks
+    const velocity = dist / duration;
+    const power = Math.min(1.2, Math.max(0.65, velocity / 650));
 
     const gesture = gestureToShot(angleDeg, power);
 

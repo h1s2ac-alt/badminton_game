@@ -32,6 +32,7 @@ export class Renderer {
     this.effectsRenderer = new EffectsRenderer(this);
 
     this.resize();
+    window.addEventListener('resize', () => this.resize());
   }
 
   _initThree() {
@@ -106,7 +107,7 @@ export class Renderer {
     };
   }
 
-  _updateDynamicCamera(shuttlecock, player) {
+  _updateDynamicCamera(shuttlecock, player, dt = 0.016) {
     let targetCamZ = this.baseCamZ;
     let targetCamY = this.baseCamY;
     let targetLookZ = -1.0;
@@ -128,13 +129,15 @@ export class Renderer {
       targetLookY += highFactor * 0.55;
     }
 
-    this.camera.position.z += (targetCamZ - this.camera.position.z) * 0.08;
-    this.camera.position.y += (targetCamY - this.camera.position.y) * 0.08;
+    // Frame-rate independent exponential smoothing: exactly consistent at 30, 60, 120, or 144Hz
+    const blend = 1 - Math.exp(-6.0 * dt);
+    this.camera.position.z += (targetCamZ - this.camera.position.z) * blend;
+    this.camera.position.y += (targetCamY - this.camera.position.y) * blend;
     this.camera.lookAt(0, targetLookY, targetLookZ);
   }
 
-  render(gameState) {
-    this._updateDynamicCamera(gameState.shuttlecock, gameState.player);
+  render(gameState, dt = 0.016) {
+    this._updateDynamicCamera(gameState.shuttlecock, gameState.player, dt);
 
     // Apply camera shake if any
     const shake = this.effectsRenderer.getShakeOffset();
@@ -145,15 +148,15 @@ export class Renderer {
 
     // 1. Update 3D Character models
     if (gameState.player) {
-      this.player3D.update(gameState.player, 0.016);
+      this.player3D.update(gameState.player, dt);
     }
     if (gameState.opponent) {
-      this.opponent3D.update(gameState.opponent, 0.016);
+      this.opponent3D.update(gameState.opponent, dt);
     }
 
     // 2. Update 3D Court, Shuttlecock & sweet-spot timing reticle
     if (this.court3D.update) {
-      this.court3D.update(0.016);
+      this.court3D.update(dt);
     }
     this.shuttle3D.update(gameState.shuttlecock, gameState.player);
 
@@ -173,6 +176,6 @@ export class Renderer {
     this.effectsRenderer.render();
     ctx.restore();
 
-    this.hudRenderer.render(gameState);
+    this.hudRenderer.render(gameState, dt);
   }
 }
