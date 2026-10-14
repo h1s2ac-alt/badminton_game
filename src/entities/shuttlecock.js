@@ -115,13 +115,13 @@ export class Shuttlecock {
     const horizontalDist = Math.hypot(xDiff, zDiff);
 
     // Realistic racket reach:
-    // Arm + racket extends ~0.85m. Allow up to 1.15m realistic reach pocket.
+    // Arm + racket extends up to 1.35m. With body lean and lunge, reach pocket is 1.65m.
     // Enforce forward/backward reach relative to character facing direction:
-    // Shuttlecock must be between -0.40m (late hit) and +0.65m (forward extension)
+    // Shuttlecock must be between -0.55m (late hit behind torso) and +0.95m (forward extension)
     const zOffset = role === 'player' ? (this.z - characterPos.z) : (characterPos.z - this.z);
-    const zInReach = zOffset >= -0.40 && zOffset <= 0.65;
+    const zInReach = zOffset >= -0.55 && zOffset <= 0.95;
 
-    return horizontalDist < 1.15 && zInReach && this.y >= 0.25 && this.y <= 3.4;
+    return horizontalDist < 1.65 && zInReach && this.y >= 0.10 && this.y <= 3.8;
   }
 
   getRemainingTime() {

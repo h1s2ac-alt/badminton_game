@@ -19,8 +19,8 @@ export class Player {
     this.shirtColor = '#3B82F6'; // Blue Mii
     this.skinColor = '#FDE047';
 
-    // Stamina system (0.0 to 1.0)
     this.stamina = 1.0;
+    this.hasConnected = false;
   }
 
   reset() {
@@ -34,6 +34,7 @@ export class Player {
     this.animTimer = 0;
     this.runAnimTime = 0;
     this.stamina = 1.0;
+    this.hasConnected = false;
   }
 
   consumeStamina(amount) {
@@ -88,6 +89,7 @@ export class Player {
     this.currentShotType = shotType;
     this.animTimer = 0.52; 
     this.swingDuration = 0.52;
+    this.hasConnected = false;
   }
 
   triggerWhiff() {

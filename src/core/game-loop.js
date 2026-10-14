@@ -51,34 +51,44 @@ export class GameEngine {
     }
   }
 
-  _handlePlayerSwing() {
+  _handlePlayerSwing(swipe = null) {
     if (this.state !== GAME_STATES.RALLY) return;
 
+    // Check if shuttlecock is in hittable range right now
     if (this.shuttlecock.isHittableBy('player', this.player)) {
       if (this._shotCooldown > 0) return;
+      this._resolvePlayerHit(swipe);
+    } else {
+      // Initiate swing immediately!
+      // If the shuttlecock arrives while the racket is actively whipping forward, it will connect!
+      const shotType = swipe ? swipe.shotType : SHOT_TYPES.CLEAR;
+      this.player.triggerSwing(shotType);
+      this._pendingSwipe = swipe;
+      this._whiffDebounce = 0.12;
+    }
+  }
 
-      const dx = this.shuttlecock.x - this.player.x;
-      const dz = this.shuttlecock.z - this.player.z;
-      const dist = Math.hypot(dx, dz);
-      // zTiming > 0 means shuttlecock is in front of player (towards net)
-      // zTiming < 0 means shuttlecock has passed behind player
-      const zTiming = this.shuttlecock.z - this.player.z;
+  _resolvePlayerHit(swipe = null) {
+    const dx = this.shuttlecock.x - this.player.x;
+    const dz = this.shuttlecock.z - this.player.z;
+    const dist = Math.hypot(dx, dz);
+    const zTiming = this.shuttlecock.z - this.player.z;
 
-      let quality = 'GOOD';
-      let sideBias = 0;
-      let timingLabel = 'GOOD!';
-      let timingColor = '#4ADE80';
-      let shotType = SHOT_TYPES.CLEAR;
+    let quality = 'GOOD';
+    let sideBias = 0;
+    let timingLabel = 'GOOD!';
+    let timingColor = '#4ADE80';
+    let shotType = swipe ? swipe.shotType : SHOT_TYPES.CLEAR;
 
-      // 1. EARLY SWING (Contact out in front -> Racket angles CROSS-COURT)
-      if (zTiming > 0.25) {
-        // Cross-court aim (opposite side from player's current side)
-        const crossSide = this.player.x >= 0 ? -1 : 1;
-        sideBias = crossSide * 0.80;
-        timingLabel = 'EARLY (CROSS-COURT)';
-        timingColor = '#06B6D4'; // Vibrant Cyan
+    // 1. EARLY SWING (Contact in front -> Cross-court)
+    if (zTiming > 0.25) {
+      const crossSide = this.player.x >= 0 ? -1 : 1;
+      sideBias = crossSide * 0.80;
+      timingLabel = 'EARLY (CROSS-COURT)';
+      timingColor = '#06B6D4';
 
-        if (this.shuttlecock.y > 2.0 && dist < 1.15) {
+      if (!swipe) {
+        if (this.shuttlecock.y > 2.0 && dist < 1.35) {
           shotType = SHOT_TYPES.SMASH;
         } else if (this.shuttlecock.z > -2.2) {
           shotType = SHOT_TYPES.DROP;
@@ -86,71 +96,70 @@ export class GameEngine {
           shotType = SHOT_TYPES.CLEAR;
         }
       }
-      // 2. PERFECT / SWEET-SPOT SWING (Direct contact in optimal pocket)
-      else if (zTiming >= -0.15) {
-        quality = 'PERFECT';
-        // Aim smartly away from opponent's current location to open court
-        const openCourtSide = this.opponent.x >= 0 ? -1 : 1;
-        sideBias = openCourtSide * 0.72;
+    }
+    // 2. PERFECT / SWEET-SPOT SWING
+    else if (zTiming >= -0.20) {
+      quality = 'PERFECT';
+      const openCourtSide = this.opponent.x >= 0 ? -1 : 1;
+      sideBias = openCourtSide * 0.72;
 
-        if (this.shuttlecock.y > 1.9 && dist < 1.15) {
+      if (!swipe) {
+        if (this.shuttlecock.y > 1.9 && dist < 1.35) {
           shotType = SHOT_TYPES.SMASH;
           timingLabel = 'PERFECT! (SMASH!)';
-          timingColor = '#FACC15'; // Radiant Gold
+          timingColor = '#FACC15';
         } else if (this.shuttlecock.y < 1.2 || this.shuttlecock.z > -2.2) {
           shotType = SHOT_TYPES.DROP;
           timingLabel = 'PERFECT! (DROP)';
-          timingColor = '#4ADE80'; // Emerald Green
+          timingColor = '#4ADE80';
         } else {
           shotType = SHOT_TYPES.DRIVE;
           timingLabel = 'PERFECT! (DRIVE)';
-          timingColor = '#38BDF8'; // Electric Sky Blue
+          timingColor = '#38BDF8';
         }
+      } else {
+        timingLabel = 'PERFECT!';
+        timingColor = '#FACC15';
       }
-      // 3. LATE SWING (Contact behind player -> Racket pushes DOWN THE LINE)
-      else if (zTiming >= -0.40) {
-        // Down the line (same side of court as player)
-        const lineSide = this.player.x >= 0 ? 1 : -1;
-        sideBias = lineSide * 0.74;
-        timingLabel = 'LATE (DOWN-THE-LINE)';
-        timingColor = '#FB923C'; // Warm Orange
+    }
+    // 3. LATE SWING (Down the line)
+    else if (zTiming >= -0.50) {
+      const lineSide = this.player.x >= 0 ? 1 : -1;
+      sideBias = lineSide * 0.74;
+      timingLabel = 'LATE (DOWN-THE-LINE)';
+      timingColor = '#FB923C';
 
+      if (!swipe) {
         if (this.shuttlecock.y > 2.1) {
           shotType = SHOT_TYPES.CLEAR;
         } else {
           shotType = SHOT_TYPES.DRIVE;
         }
       }
-      // 4. TOO LATE (Off-balance recovery)
-      else {
-        quality = 'POOR';
-        sideBias = (Math.random() - 0.5) * 0.4;
-        shotType = SHOT_TYPES.CLEAR;
-        timingLabel = 'TOO LATE!';
-        timingColor = '#EF4444';
-      }
-
-      this._executePlayerShot({
-        shotType,
-        power: quality === 'PERFECT' ? 1.05 : 0.95,
-        sideBias,
-      }, false, quality, timingLabel, timingColor);
-
-      // Shot cooldown prevents double-hitting the same shot
-      this._shotCooldown = 0.28;
-      this._whiffDebounce = 0;
-    } else {
-      // Whiff / Air Swing (Shuttlecock not yet in reach)
-      if (this._whiffDebounce > 0) return;
-
-      this.player.triggerWhiff();
-      this.renderer.effectsRenderer.addHitText(
-        { x: this.player.x, y: 1.5, z: this.player.z },
-        'MISS!',
-        '#EF4444'
-      );
-      this._whiffDebounce = 0.05; // Quick 50ms key chatter debounce only, no shot lockout!
     }
+    // 4. TOO LATE (Off-balance recovery)
+    else {
+      quality = 'POOR';
+      sideBias = (Math.random() - 0.5) * 0.4;
+      shotType = SHOT_TYPES.CLEAR;
+      timingLabel = 'TOO LATE!';
+      timingColor = '#EF4444';
+    }
+
+    const power = swipe ? swipe.power : (quality === 'PERFECT' ? 1.05 : 0.95);
+    const finalSideBias = (swipe && swipe.sideBias !== undefined) ? swipe.sideBias : sideBias;
+
+    this.player.hasConnected = true;
+    this._pendingSwipe = null;
+
+    this._executePlayerShot({
+      shotType,
+      power,
+      sideBias: finalSideBias,
+    }, false, quality, timingLabel, timingColor);
+
+    this._shotCooldown = 0.32;
+    this._whiffDebounce = 0;
   }
 
   startMatch(difficultyKey) {
@@ -213,30 +222,8 @@ export class GameEngine {
       return;
     }
 
-    if (this.state !== GAME_STATES.RALLY) return;
-
-    if (this.shuttlecock.isHittableBy('player', this.player)) {
-      if (this._shotCooldown > 0) return;
-
-      const dx = this.shuttlecock.x - this.player.x;
-      const dz = this.shuttlecock.z - this.player.z;
-      const dist = Math.hypot(dx, dz);
-      
-      let quality = 'GOOD';
-      if (dist < 0.6) {
-        quality = 'PERFECT';
-      } else if (dist > 1.1) {
-        quality = 'POOR';
-      }
-
-      this._executePlayerShot(swipe, false, quality);
-      this._shotCooldown = 0.28;
-      this._whiffDebounce = 0;
-    } else {
-      if (this._whiffDebounce > 0) return;
-      this.player.triggerWhiff();
-      this.renderer.effectsRenderer.addHitText({ x: this.player.x, y: 1.5, z: this.player.z }, 'MISS!', '#EF4444');
-      this._whiffDebounce = 0.05;
+    if (this.state === GAME_STATES.RALLY) {
+      this._handlePlayerSwing(swipe);
     }
   }
 
@@ -440,6 +427,20 @@ export class GameEngine {
       this.shuttlecock.update(dt);
       this.player.update(dt, this.shuttlecock, true, moveInput);
       this.opponent.update(dt);
+
+      // Active swing frame collision check:
+      // While the player is actively swinging, intercept the shuttlecock as soon as it enters reach
+      if (this.player.animState === 'SWINGING' && !this.player.hasConnected && this._shotCooldown <= 0) {
+        const dur = this.player.swingDuration || 0.52;
+        const elapsed = dur - (this.player.animTimer || 0);
+        const t = dur > 0 ? (elapsed / dur) : 0;
+        // Contact window is active between 8% and 75% of the swing animation
+        if (t >= 0.08 && t <= 0.75) {
+          if (this.shuttlecock.isHittableBy('player', this.player)) {
+            this._resolvePlayerHit(this._pendingSwipe);
+          }
+        }
+      }
 
       this.ai.update(dt, this.shuttlecock, this.player, (aiShot) => this._executeAIShot(aiShot));
 

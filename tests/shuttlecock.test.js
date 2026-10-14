@@ -27,4 +27,24 @@ describe('Shuttlecock Net Fault & Trail', () => {
 
     expect(s.trailHistory.length).toBeGreaterThan(0);
   });
+
+  it('determines hittable reach correctly for player with realistic racket distance', () => {
+    const s = new Shuttlecock();
+    s.x = 0.5;
+    s.y = 1.8;
+    s.z = -3.8;
+    s.inFlight = true;
+
+    const player = { x: 0.0, y: 0, z: -4.0 };
+    // Distance dx = 0.5, dz = 0.2 (hypot = 0.538m < 1.65m), zOffset = 0.2, y = 1.8m
+    expect(s.isHittableBy('player', player)).toBe(true);
+
+    // Too far horizontally
+    const farPlayer = { x: 2.5, y: 0, z: -4.0 };
+    expect(s.isHittableBy('player', farPlayer)).toBe(false);
+
+    // Shuttlecock behind player past rear reach limit
+    const overshotPlayer = { x: 0.5, y: 0, z: -2.8 }; // zOffset = -3.8 - (-2.8) = -1.0m (< -0.55m)
+    expect(s.isHittableBy('player', overshotPlayer)).toBe(false);
+  });
 });
