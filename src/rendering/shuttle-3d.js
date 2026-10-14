@@ -247,25 +247,30 @@ export class Shuttle3D {
       if (this.groundShadow) this.groundShadow.visible = false;
     }
 
-    // 4. Arcade Sweet-Spot Landing Reticle
+    // 4. Arcade Sweet-Spot Timing Reticle (Synchronized with Player & Racket Intercept, NOT the ground!)
     if (shuttlecock.inFlight && shuttlecock.lastHitter === 'opponent' && shuttlecock.trajectory) {
       const traj = shuttlecock.trajectory;
-      const t = traj.duration > 0 ? Math.min(1, Math.max(0, traj.elapsed / traj.duration)) : 0;
       const target = traj.target || traj.targetPos;
+
+      // Calculate optimal intercept fraction tOpt [0..1] when shuttle enters player contact zone
+      const tOpt = traj.getOptimalHitTime ? traj.getOptimalHitTime('player', player) : 0.75;
+      const contactDuration = (traj.duration || 1.5) * tOpt;
+      // hitProgress reaches 1.0 exactly at optimal contact with player and racket
+      const hitProgress = contactDuration > 0 ? (traj.elapsed / contactDuration) : 0;
 
       if (target) {
         this.landingRing.visible = true;
         this.landingRing.position.set(-target.x, 0.005, target.z);
 
-        // Contracting countdown wave: starts wide (2.5x) and contracts smoothly to target (1.0x)
-        const contractScale = Math.max(0.95, 1.0 + (1 - t) * 1.55);
+        // Contracting countdown wave: starts wide (2.55x) and contracts smoothly to target (1.0x at sweet spot!)
+        const contractScale = Math.max(0.95, 1.0 + Math.max(0, 1.0 - hitProgress) * 1.55);
         this.timingRingMesh.scale.set(contractScale, contractScale, 1);
 
-        // Check sweet spot hitting window relative to player
-        const canHit = (player && shuttlecock.isHittableBy) ? shuttlecock.isHittableBy('player', player) : (t >= 0.65);
-        const zTiming = player ? (shuttlecock.z - player.z) : 0;
-        const inSweetSpot = canHit && (!player || (zTiming >= -0.15 && zTiming <= 0.28));
-        const isLate = canHit && player && (zTiming < -0.15);
+        // Check sweet spot hitting window relative to player and contact time
+        const canHit = (player && shuttlecock.isHittableBy) ? shuttlecock.isHittableBy('player', player) : (hitProgress >= 0.85 && hitProgress <= 1.25);
+        const zTiming = player ? (shuttlecock.z - player.z) : 0.35;
+        const inSweetSpot = canHit && Math.abs(hitProgress - 1.0) <= 0.16 && zTiming >= -0.15 && zTiming <= 0.45;
+        const isLate = canHit && (hitProgress > 1.16 || zTiming < -0.15);
 
         if (inSweetSpot) {
           // 🟢 SWEET SPOT! HIT NOW!
@@ -275,7 +280,7 @@ export class Shuttle3D {
           this.landingDotMat.color.setHex(0x22C55E);
 
           this.haloMat.color.setHex(0x22C55E);
-          this.haloMat.opacity = 0.75 + Math.sin(performance.now() * 0.016) * 0.2;
+          this.haloMat.opacity = 0.80 + Math.sin(performance.now() * 0.016) * 0.2;
           this.haloMesh.scale.set(pulse, pulse, 1);
           this.dotMesh.scale.set(pulse * 1.1, pulse * 1.1, 1);
         } else if (isLate) {

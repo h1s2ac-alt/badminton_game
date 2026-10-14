@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { SHOT_TYPES } from '../utils/constants.js';
 
 export class Character3D {
   constructor(scene, role = 'player') {
@@ -394,120 +395,262 @@ export class Character3D {
     // 1. Position character in 3D world space (mapped to camera perspective)
     this.group.position.set(-character.x, 0, character.z);
 
-    // 2. Base ready stance poses
-    let leftLegAngle = 0;
-    let rightLegAngle = 0;
-    let leftArmAngle = 0.25;
-    let leftArmRotZ = 0.2;
-    let rightArmRotX = 0.3; // Racket held forward in ready anticipation
+    // 2. Authentic Badminton Athletic Ready Stance
+    // Knee bend lowering center of gravity, forward athletic tilt, ready racket hold
+    let leftLegAngle = 0.08;
+    let rightLegAngle = -0.06;
+    let leftArmAngle = 0.35;
+    let leftArmRotZ = 0.35;
+    let rightArmRotX = 0.45; // Racket held raised in front in ready position
     let rightArmRotY = 0;
-    let rightArmRotZ = -0.3;
-    let torsoBob = 0;
-    let torsoRotX = 0;
+    let rightArmRotZ = -0.35;
+    let torsoBob = -0.05; // Athletic knee bend stance
+    let torsoRotX = 0.12; // Forward athletic lean
     let torsoRotY = 0;
     let headRotX = 0;
     let swooshActive = false;
     let swooshOpacity = 0;
 
-    // 3. Running walk-cycle animation
+    // Subtle breathing / ready sway so character feels alive
+    const aliveTime = performance.now() * 0.003;
+    torsoBob += Math.sin(aliveTime) * 0.01;
+
+    // 3. Fluid Badminton Locomotion (Chassé & Running Footwork)
     if (character.animState === 'RUNNING') {
-      const walkPhase = (character.runAnimTime || 0) * 14;
-      leftLegAngle = Math.sin(walkPhase) * 0.48;
-      rightLegAngle = -Math.sin(walkPhase) * 0.48;
-      leftArmAngle = -Math.sin(walkPhase) * 0.45;
-      rightArmRotX = 0.3 + Math.sin(walkPhase) * 0.35;
-      torsoBob = Math.abs(Math.sin(walkPhase * 2)) * 0.04;
+      const walkPhase = (character.runAnimTime || 0) * 12;
+      torsoRotX = 0.18; // Lean forward into sprint
+      torsoBob = -0.05 + Math.abs(Math.sin(walkPhase * 2)) * 0.06; // Springy chassis bob
+      leftLegAngle = Math.sin(walkPhase) * 0.52;
+      rightLegAngle = -Math.sin(walkPhase) * 0.52;
+      leftArmAngle = -Math.sin(walkPhase) * 0.48;
+      rightArmRotX = 0.42 + Math.sin(walkPhase) * 0.22;
+      rightArmRotZ = -0.32;
     }
 
-    // 4. Distinctive Shot-Specific Swing Animations (Immediate explosive stroke on hit)
+    // 4. Authentic 4-Phase Badminton Swing System (Paced for realistic 0.52s stroke)
+    // Phase 1 (0.00 - 0.25): Windup / Backswing (racket coils back, weight shifts)
+    // Phase 2 (0.25 - 0.50): Power Acceleration to Contact (explosive whip, swoosh active)
+    // Phase 3 (0.50 - 0.75): Follow-Through (deceleration wrap around body)
+    // Phase 4 (0.75 - 1.00): Return Recovery (smooth blend back into ready stance)
     else if (character.animState === 'SWINGING') {
-      const dur = character.swingDuration || 0.32;
+      const dur = character.swingDuration || 0.52;
       const elapsed = dur - (character.animTimer || 0);
-      const t = dur > 0 ? Math.min(1, Math.max(0, elapsed / dur)) : 0;
-      const shotType = character.currentShotType || 'CLEAR';
+      const t = dur > 0 ? THREE.MathUtils.clamp(elapsed / dur, 0, 1) : 0;
+      const shotType = character.currentShotType || SHOT_TYPES.CLEAR;
 
-      if (shotType === 'SMASH') {
-        // ── OVERHEAD JUMP SMASH ──────────────────────────────────────────
-        if (t < 0.44) {
-          const p = t / 0.44;
-          // Jump hop during strike
-          torsoBob = Math.sin(p * Math.PI) * 0.30;
-          // Ferocious downward smash whip
-          rightArmRotX = THREE.MathUtils.lerp(-1.8, 2.1, p);
-          rightArmRotZ = THREE.MathUtils.lerp(0.4, -0.6, p);
-          leftArmAngle = THREE.MathUtils.lerp(-0.8, 0.4, p);
-          torsoRotX = THREE.MathUtils.lerp(-0.1, 0.35, p);  // Crunch forward with impact!
-          headRotX = THREE.MathUtils.lerp(-0.25, 0.25, p);
-          leftLegAngle = -0.25 * Math.sin(p * Math.PI);
-          rightLegAngle = -0.35 * Math.sin(p * Math.PI);
+      if (shotType === SHOT_TYPES.SERVE_SHORT || shotType === SHOT_TYPES.SERVE) {
+        // ── SHORT BACKHAND FLICK SERVE (AUTHENTIC UNDERHAND) ─────────────
+        // Low stance, backhand grip held at waist level, forward flick across body
+        if (t < 0.25) {
+          const p = t / 0.25;
+          torsoBob = THREE.MathUtils.lerp(-0.05, -0.09, p);
+          torsoRotX = THREE.MathUtils.lerp(0.12, 0.24, p);
+          // Tuck racket across torso at waist level (backhand preparation)
+          rightArmRotX = THREE.MathUtils.lerp(0.45, 0.90, p);
+          rightArmRotY = THREE.MathUtils.lerp(0, -0.45, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.35, -0.60, p);
+          leftArmAngle = THREE.MathUtils.lerp(0.35, 0.55, p); // Shuttle release hand
+        } else if (t < 0.50) {
+          const p = (t - 0.25) / 0.25;
+          torsoBob = -0.09;
+          torsoRotX = 0.24;
+          // Crisp forward wrist flick pushing low over net
+          rightArmRotX = THREE.MathUtils.lerp(0.90, 0.50, p);
+          rightArmRotY = THREE.MathUtils.lerp(-0.45, 0.40, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.60, -0.25, p);
+          leftArmAngle = THREE.MathUtils.lerp(0.55, 0.20, p);
 
           swooshActive = true;
-          swooshOpacity = Math.sin(p * Math.PI) * 0.95;
-          this.swooshMat.color.setHex(0xFF4020); // Fiery orange-red swoosh
+          swooshOpacity = Math.sin(p * Math.PI) * 0.75;
+          this.swooshMat.color.setHex(0x60A5FA); // Crisp ice-blue flick swoosh
+        } else if (t < 0.75) {
+          const p = (t - 0.50) / 0.25;
+          // Hold follow-through extension
+          torsoBob = THREE.MathUtils.lerp(-0.09, -0.06, p);
+          rightArmRotX = THREE.MathUtils.lerp(0.50, 0.48, p);
+          rightArmRotY = THREE.MathUtils.lerp(0.40, 0.15, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.25, -0.30, p);
         } else {
-          // Landing recovery & return to stance
-          const p = (t - 0.44) / 0.56;
-          rightArmRotX = THREE.MathUtils.lerp(2.1, 0.3, p);
-          rightArmRotZ = THREE.MathUtils.lerp(-0.6, -0.3, p);
-          leftArmAngle = THREE.MathUtils.lerp(0.4, 0.25, p);
-          torsoRotX = THREE.MathUtils.lerp(0.35, 0, p);
-          headRotX = THREE.MathUtils.lerp(0.25, 0, p);
+          const p = (t - 0.75) / 0.25;
+          // Smooth return to athletic ready stance
+          torsoBob = THREE.MathUtils.lerp(-0.06, -0.05, p);
+          torsoRotX = THREE.MathUtils.lerp(0.24, 0.12, p);
+          rightArmRotX = THREE.MathUtils.lerp(0.48, 0.45, p);
+          rightArmRotY = THREE.MathUtils.lerp(0.15, 0, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.30, -0.35, p);
+          leftArmAngle = THREE.MathUtils.lerp(0.20, 0.35, p);
         }
-      } else if (shotType === 'DRIVE') {
+      } else if (shotType === SHOT_TYPES.SERVE_HIGH) {
+        // ── HIGH FOREHAND UNDERHAND CLEAR SERVE ──────────────────────────
+        // Deep underhand scoop starting below waist, high lofted upward stroke
+        if (t < 0.25) {
+          const p = t / 0.25;
+          // Side-on prep stance, drop racket down and behind hip
+          torsoRotY = THREE.MathUtils.lerp(0, -0.35, p);
+          rightArmRotX = THREE.MathUtils.lerp(0.45, 1.65, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.35, 0.35, p);
+          leftArmAngle = THREE.MathUtils.lerp(0.35, -0.65, p); // Left arm points forward
+        } else if (t < 0.50) {
+          const p = (t - 0.25) / 0.25;
+          // Violent upward scoop whip through waist height to sky
+          torsoRotY = THREE.MathUtils.lerp(-0.35, 0.25, p);
+          torsoRotX = THREE.MathUtils.lerp(0.12, -0.10, p);
+          rightArmRotX = THREE.MathUtils.lerp(1.65, -1.55, p);
+          rightArmRotZ = THREE.MathUtils.lerp(0.35, -0.45, p);
+          leftArmAngle = THREE.MathUtils.lerp(-0.65, 0.40, p);
+
+          swooshActive = true;
+          swooshOpacity = Math.sin(p * Math.PI) * 0.90;
+          this.swooshMat.color.setHex(0xFACC15); // Brilliant gold serve arc
+        } else if (t < 0.75) {
+          const p = (t - 0.50) / 0.25;
+          // High follow-through wrap over opposite shoulder
+          rightArmRotX = THREE.MathUtils.lerp(-1.55, -0.60, p);
+          rightArmRotY = THREE.MathUtils.lerp(0.25, 0.10, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.45, -0.38, p);
+          torsoRotX = THREE.MathUtils.lerp(-0.10, 0.08, p);
+        } else {
+          const p = (t - 0.75) / 0.25;
+          // Recover to ready stance
+          torsoRotY = THREE.MathUtils.lerp(0.10, 0, p);
+          torsoRotX = THREE.MathUtils.lerp(0.08, 0.12, p);
+          rightArmRotX = THREE.MathUtils.lerp(-0.60, 0.45, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.38, -0.35, p);
+          leftArmAngle = THREE.MathUtils.lerp(0.40, 0.35, p);
+        }
+      } else if (shotType === SHOT_TYPES.SMASH) {
+        // ── OVERHEAD JUMP SMASH ──────────────────────────────────────────
+        if (t < 0.25) {
+          const p = t / 0.25;
+          // Windup: Cock racket high behind back, arch torso back, jump takeoff
+          torsoBob = THREE.MathUtils.lerp(-0.05, 0.26, p);
+          torsoRotX = THREE.MathUtils.lerp(0.12, -0.18, p);
+          rightArmRotX = THREE.MathUtils.lerp(0.45, -1.90, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.35, 0.50, p);
+          leftArmAngle = THREE.MathUtils.lerp(0.35, -1.15, p); // Non-racket arm tracks bird
+          leftLegAngle = -0.20 * p;
+          rightLegAngle = -0.30 * p;
+        } else if (t < 0.50) {
+          const p = (t - 0.25) / 0.25;
+          // Explosive downward whip at contact in air
+          torsoBob = 0.26 * Math.sin((1 - p * 0.4) * Math.PI);
+          torsoRotX = THREE.MathUtils.lerp(-0.18, 0.38, p); // Crunch forward into shot!
+          headRotX = THREE.MathUtils.lerp(-0.25, 0.28, p);
+          rightArmRotX = THREE.MathUtils.lerp(-1.90, 2.15, p);
+          rightArmRotZ = THREE.MathUtils.lerp(0.50, -0.65, p);
+          leftArmAngle = THREE.MathUtils.lerp(-1.15, 0.45, p);
+
+          swooshActive = true;
+          swooshOpacity = Math.sin(p * Math.PI) * 0.98;
+          this.swooshMat.color.setHex(0xFF3C28); // Blazing smash red
+        } else if (t < 0.75) {
+          const p = (t - 0.50) / 0.25;
+          // Landing absorption & follow-through past hip
+          torsoBob = THREE.MathUtils.lerp(0.10, -0.07, p);
+          torsoRotX = THREE.MathUtils.lerp(0.38, 0.16, p);
+          headRotX = THREE.MathUtils.lerp(0.28, 0.05, p);
+          rightArmRotX = THREE.MathUtils.lerp(2.15, 1.10, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.65, -0.42, p);
+        } else {
+          const p = (t - 0.75) / 0.25;
+          // Smooth return to athletic stance
+          torsoBob = THREE.MathUtils.lerp(-0.07, -0.05, p);
+          torsoRotX = THREE.MathUtils.lerp(0.16, 0.12, p);
+          headRotX = THREE.MathUtils.lerp(0.05, 0, p);
+          rightArmRotX = THREE.MathUtils.lerp(1.10, 0.45, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.42, -0.35, p);
+          leftArmAngle = THREE.MathUtils.lerp(0.45, 0.35, p);
+        }
+      } else if (shotType === SHOT_TYPES.DRIVE) {
         // ── FLAT SIDEARM DRIVE WHIP ──────────────────────────────────────
-        if (t < 0.44) {
-          const p = t / 0.44;
-          rightArmRotX = THREE.MathUtils.lerp(-0.2, 0.9, p);
-          rightArmRotY = THREE.MathUtils.lerp(-0.7, 1.3, p);
-          rightArmRotZ = THREE.MathUtils.lerp(0.45, -0.45, p);
-          torsoRotY = THREE.MathUtils.lerp(-0.25, 0.42, p); // Uncoils forward with speed
+        if (t < 0.25) {
+          const p = t / 0.25;
+          rightArmRotX = THREE.MathUtils.lerp(0.45, 0.15, p);
+          rightArmRotY = THREE.MathUtils.lerp(0, -0.80, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.35, 0.40, p);
+          torsoRotY = THREE.MathUtils.lerp(0, -0.30, p);
+        } else if (t < 0.50) {
+          const p = (t - 0.25) / 0.25;
+          rightArmRotX = THREE.MathUtils.lerp(0.15, 0.95, p);
+          rightArmRotY = THREE.MathUtils.lerp(-0.80, 1.35, p);
+          rightArmRotZ = THREE.MathUtils.lerp(0.40, -0.50, p);
+          torsoRotY = THREE.MathUtils.lerp(-0.30, 0.45, p); // Uncoils forward
 
           swooshActive = true;
           swooshOpacity = Math.sin(p * Math.PI) * 0.90;
           this.swooshMat.color.setHex(0x38BDF8); // Electric sky blue swoosh
+        } else if (t < 0.75) {
+          const p = (t - 0.50) / 0.25;
+          rightArmRotX = THREE.MathUtils.lerp(0.95, 0.65, p);
+          rightArmRotY = THREE.MathUtils.lerp(1.35, 0.50, p);
+          torsoRotY = THREE.MathUtils.lerp(0.45, 0.15, p);
         } else {
-          const p = (t - 0.44) / 0.56;
-          rightArmRotX = THREE.MathUtils.lerp(0.9, 0.3, p);
-          rightArmRotY = THREE.MathUtils.lerp(1.3, 0, p);
-          rightArmRotZ = THREE.MathUtils.lerp(-0.45, -0.3, p);
-          torsoRotY = THREE.MathUtils.lerp(0.42, 0, p);
+          const p = (t - 0.75) / 0.25;
+          rightArmRotX = THREE.MathUtils.lerp(0.65, 0.45, p);
+          rightArmRotY = THREE.MathUtils.lerp(0.50, 0, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.50, -0.35, p);
+          torsoRotY = THREE.MathUtils.lerp(0.15, 0, p);
         }
-      } else if (shotType === 'DROP' || shotType === 'NET') {
-        // ── UNDERHAND NET SCOOP / DROP ──────────────────────────────────
-        if (t < 0.44) {
-          const p = t / 0.44;
-          torsoBob = -0.10 * Math.sin(p * Math.PI);
-          rightArmRotX = THREE.MathUtils.lerp(1.45, -0.35, p); // Delicate upward lift
-          rightArmRotZ = THREE.MathUtils.lerp(-0.1, -0.35, p);
-          torsoRotX = THREE.MathUtils.lerp(0.18, -0.05, p);
+      } else if (shotType === SHOT_TYPES.DROP || shotType === SHOT_TYPES.NET) {
+        // ── DELICATE NET TOUCH / DROP ────────────────────────────────────
+        if (t < 0.25) {
+          const p = t / 0.25;
+          torsoBob = THREE.MathUtils.lerp(-0.05, -0.12, p); // Low lunge
+          torsoRotX = THREE.MathUtils.lerp(0.12, 0.25, p);
+          rightArmRotX = THREE.MathUtils.lerp(0.45, 1.45, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.35, -0.15, p);
+        } else if (t < 0.50) {
+          const p = (t - 0.25) / 0.25;
+          torsoBob = -0.12;
+          torsoRotX = 0.25;
+          // Soft upward lift
+          rightArmRotX = THREE.MathUtils.lerp(1.45, 0.35, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.15, -0.40, p);
 
           swooshActive = true;
-          swooshOpacity = Math.sin(p * Math.PI) * 0.70;
-          this.swooshMat.color.setHex(0x4ADE80); // Emerald touch swoosh
+          swooshOpacity = Math.sin(p * Math.PI) * 0.75;
+          this.swooshMat.color.setHex(0x22C55E); // Emerald touch swoosh
+        } else if (t < 0.75) {
+          const p = (t - 0.50) / 0.25;
+          torsoBob = THREE.MathUtils.lerp(-0.12, -0.07, p);
+          rightArmRotX = THREE.MathUtils.lerp(0.35, 0.40, p);
         } else {
-          const p = (t - 0.44) / 0.56;
-          rightArmRotX = THREE.MathUtils.lerp(-0.35, 0.3, p);
-          rightArmRotZ = THREE.MathUtils.lerp(-0.35, -0.3, p);
-          torsoRotX = THREE.MathUtils.lerp(-0.05, 0, p);
+          const p = (t - 0.75) / 0.25;
+          torsoBob = THREE.MathUtils.lerp(-0.07, -0.05, p);
+          torsoRotX = THREE.MathUtils.lerp(0.25, 0.12, p);
+          rightArmRotX = THREE.MathUtils.lerp(0.40, 0.45, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.40, -0.35, p);
         }
       } else {
-        // ── HIGH OVERHEAD CLEAR / SERVE ──────────────────────────────────
-        if (t < 0.44) {
-          const p = t / 0.44;
-          rightArmRotX = THREE.MathUtils.lerp(-1.75, 1.45, p);
+        // ── HIGH OVERHEAD CLEAR ──────────────────────────────────────────
+        if (t < 0.25) {
+          const p = t / 0.25;
+          torsoRotX = THREE.MathUtils.lerp(0.12, -0.12, p);
+          rightArmRotX = THREE.MathUtils.lerp(0.45, -1.80, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.35, 0.65, p);
+          headRotX = THREE.MathUtils.lerp(0, -0.25, p);
+        } else if (t < 0.50) {
+          const p = (t - 0.25) / 0.25;
+          torsoRotX = THREE.MathUtils.lerp(-0.12, 0.25, p);
+          headRotX = THREE.MathUtils.lerp(-0.25, 0.18, p);
+          rightArmRotX = THREE.MathUtils.lerp(-1.80, 1.55, p);
           rightArmRotZ = THREE.MathUtils.lerp(0.65, -0.65, p);
-          torsoRotX = THREE.MathUtils.lerp(-0.1, 0.22, p);
-          headRotX = THREE.MathUtils.lerp(-0.25, 0.15, p);
 
           swooshActive = true;
-          swooshOpacity = Math.sin(p * Math.PI) * 0.85;
+          swooshOpacity = Math.sin(p * Math.PI) * 0.88;
           this.swooshMat.color.setHex(0xFACC15); // Golden clear swoosh
+        } else if (t < 0.75) {
+          const p = (t - 0.50) / 0.25;
+          torsoRotX = THREE.MathUtils.lerp(0.25, 0.15, p);
+          headRotX = THREE.MathUtils.lerp(0.18, 0.05, p);
+          rightArmRotX = THREE.MathUtils.lerp(1.55, 0.85, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.65, -0.45, p);
         } else {
-          const p = (t - 0.44) / 0.56;
-          rightArmRotX = THREE.MathUtils.lerp(1.45, 0.3, p);
-          rightArmRotZ = THREE.MathUtils.lerp(-0.65, -0.3, p);
-          torsoRotX = THREE.MathUtils.lerp(0.22, 0, p);
-          headRotX = THREE.MathUtils.lerp(0.15, 0, p);
+          const p = (t - 0.75) / 0.25;
+          torsoRotX = THREE.MathUtils.lerp(0.15, 0.12, p);
+          headRotX = THREE.MathUtils.lerp(0.05, 0, p);
+          rightArmRotX = THREE.MathUtils.lerp(0.85, 0.45, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.45, -0.35, p);
         }
       }
     }
@@ -568,3 +711,4 @@ export class Character3D {
     }
   }
 }
+

@@ -7,11 +7,14 @@ export class Player {
     this.x = home.x;
     this.y = home.y;
     this.z = home.z;
+    this.vx = 0;
+    this.vz = 0;
     this.baseSpeed = 5.5; // m/s
     this.speed = 5.5;
     this.role = 'player';
     this.animState = 'IDLE'; // 'IDLE', 'RUNNING', 'SWINGING', 'WHIFF'
     this.animTimer = 0;
+    this.swingDuration = 0.52;
     this.runAnimTime = 0;
     this.shirtColor = '#3B82F6'; // Blue Mii
     this.skinColor = '#FDE047';
@@ -25,6 +28,8 @@ export class Player {
     this.x = home.x;
     this.y = home.y;
     this.z = home.z;
+    this.vx = 0;
+    this.vz = 0;
     this.animState = 'IDLE';
     this.animTimer = 0;
     this.runAnimTime = 0;
@@ -45,10 +50,16 @@ export class Player {
     if (this.stumbleTimer > 0) speedMult *= 0.3; // Stumble severely limits movement
     this.speed = this.baseSpeed * speedMult;
 
-    if (dist > 0.05) {
-      const step = Math.min(dist, this.speed * dt);
-      this.x += (dx / dist) * step;
-      this.z += (dz / dist) * step;
+    if (dist > 0.08) {
+      // Smooth continuous velocity damping
+      const targetVx = (dx / dist) * this.speed;
+      const targetVz = (dz / dist) * this.speed;
+      const blend = Math.min(1, dt * 14);
+      this.vx = lerp(this.vx || 0, targetVx, blend);
+      this.vz = lerp(this.vz || 0, targetVz, blend);
+
+      this.x += this.vx * dt;
+      this.z += this.vz * dt;
 
       // Constrain player to their side of court
       this.x = clamp(this.x, -Court.HALF_WIDTH, Court.HALF_WIDTH);
@@ -58,16 +69,25 @@ export class Player {
         this.animState = 'RUNNING';
         this.runAnimTime += dt;
       }
-    } else if (this.animState === 'RUNNING') {
-      this.animState = 'IDLE';
+    } else {
+      // Smooth deceleration to stop
+      const blend = Math.min(1, dt * 16);
+      this.vx = lerp(this.vx || 0, 0, blend);
+      this.vz = lerp(this.vz || 0, 0, blend);
+      this.x += (this.vx || 0) * dt;
+      this.z += (this.vz || 0) * dt;
+
+      if (this.animState === 'RUNNING' && Math.hypot(this.vx || 0, this.vz || 0) < 0.08) {
+        this.animState = 'IDLE';
+      }
     }
   }
 
   triggerSwing(shotType = 'CLEAR') {
     this.animState = 'SWINGING';
     this.currentShotType = shotType;
-    this.animTimer = 0.32; 
-    this.swingDuration = 0.32;
+    this.animTimer = 0.52; 
+    this.swingDuration = 0.52;
   }
 
   triggerWhiff() {
@@ -96,9 +116,14 @@ export class Player {
     if (this.stumbleTimer > 0) speedMult *= 0.3;
     this.speed = this.baseSpeed * speedMult;
 
-    const step = this.speed * dt;
-    this.x += dx * step;
-    this.z += dz * step;
+    const targetVx = dx * this.speed;
+    const targetVz = dz * this.speed;
+    const blend = Math.min(1, dt * 16);
+    this.vx = lerp(this.vx || 0, targetVx, blend);
+    this.vz = lerp(this.vz || 0, targetVz, blend);
+
+    this.x += this.vx * dt;
+    this.z += this.vz * dt;
 
     // Constrain player to their side of court
     this.x = clamp(this.x, -Court.HALF_WIDTH, Court.HALF_WIDTH);
@@ -142,21 +167,20 @@ export class Player {
 
     // 2. Auto-run assistance when not manually moving
     if (shuttlecock.lastHitter === 'opponent' && shuttlecock.trajectory) {
-      const landingX = clamp(shuttlecock.trajectory.target.x, -Court.HALF_WIDTH + 0.35, Court.HALF_WIDTH - 0.35);
-      const landingZ = clamp(shuttlecock.trajectory.target.z, Court.BASELINE_PLAYER + 0.4, -0.6);
+      const traj = shuttlecock.trajectory;
+      const target = traj.target || traj.targetPos;
+      // Fixed, stable target intercept position (player stands comfortably on the left/racket-prep side)
+      const idealX = target.x - 0.25;
+      const idealZ = target.z - 0.35;
 
-      let desX = landingX;
-      let desZ = landingZ;
-      if (shuttlecock.z < -0.8) {
-        desX = lerp(landingX, shuttlecock.x, 0.35);
-        desZ = lerp(landingZ, shuttlecock.z, 0.25);
-      }
+      const desX = clamp(idealX, -Court.HALF_WIDTH + 0.35, Court.HALF_WIDTH - 0.35);
+      const desZ = clamp(idealZ, Court.BASELINE_PLAYER + 0.35, -0.6);
 
       this.moveTo(desX, desZ, dt);
     } else if (shuttlecock.lastHitter === 'player' && isRallyActive) {
       // Smoothly drift back towards home base position after hitting
       const home = Court.getHomePosition('player');
-      this.moveTo(home.x * 0.25 + this.x * 0.75, home.z * 0.25 + this.z * 0.75, dt * 0.7);
+      this.moveTo(home.x, home.z, dt * 0.7);
     }
   }
 }

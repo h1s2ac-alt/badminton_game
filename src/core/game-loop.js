@@ -39,7 +39,7 @@ export class GameEngine {
     if (this.state === GAME_STATES.PRE_SERVE) {
       if (this.score.server === 'player') {
         if (this._shotCooldown > 0) return;
-        this._executePlayerShot({ shotType: SHOT_TYPES.SERVE, power: 0.9, sideBias: 0 }, true);
+        this._executePlayerShot({ shotType: SHOT_TYPES.SERVE_SHORT, power: 0.88, sideBias: 0 }, true);
         this.state = GAME_STATES.RALLY;
         this._shotCooldown = 0.28;
       }
@@ -198,6 +198,10 @@ export class GameEngine {
     if (this.state === GAME_STATES.PRE_SERVE) {
       if (this.score.server === 'player') {
         if (this._shotCooldown > 0) return;
+        const serveShotType = (swipe.shotType === SHOT_TYPES.CLEAR)
+          ? SHOT_TYPES.SERVE_HIGH
+          : SHOT_TYPES.SERVE_SHORT;
+        swipe.shotType = serveShotType;
         this._executePlayerShot(swipe, true);
         this.state = GAME_STATES.RALLY;
         this._shotCooldown = 0.28;
@@ -268,8 +272,11 @@ export class GameEngine {
 
     let targetZ = COURT.HALF_LENGTH - 0.8; // default deep
     if (isServe) {
-      // Serve landing spot (short or deep service box based on swipe type)
-      targetZ = swipe.shotType === SHOT_TYPES.DROP ? COURT.SHORT_SERVICE_DIST + 0.5 : 4.8;
+      // Short backhand serve lands right past the short service line (COURT.SHORT_SERVICE_DIST + 0.45)
+      // High underhand clear serve lands deep near back boundary line (COURT.BASELINE_OPPONENT - 0.5)
+      targetZ = (swipe.shotType === SHOT_TYPES.SERVE_HIGH)
+        ? (COURT.BASELINE_OPPONENT - 0.5)
+        : (COURT.SHORT_SERVICE_DIST + 0.45);
     } else if (swipe.shotType === SHOT_TYPES.DROP || swipe.shotType === SHOT_TYPES.NET) {
       targetZ = COURT.SHORT_SERVICE_DIST + 0.5;
     } else if (swipe.shotType === SHOT_TYPES.SMASH) {
@@ -282,13 +289,13 @@ export class GameEngine {
       targetZ += (Math.random() - 0.5) * 1.5;
     }
 
-    // Launch from current shuttlecock position during rallies to eliminate teleporting!
+    // Launch from waist level (1.05m) on serves below waist height (authentic legal badminton serve)
     const startPos = isServe
-      ? { x: this.player.x + (this.player.x > 0 ? -0.25 : 0.25), y: 1.2, z: this.player.z + 0.3 }
+      ? { x: this.player.x + (this.player.x > 0 ? -0.22 : 0.22), y: 1.05, z: this.player.z + 0.3 }
       : { x: this.shuttlecock.x, y: Math.max(0.4, this.shuttlecock.y), z: this.shuttlecock.z };
     const targetPos = { x: targetX, y: 0, z: targetZ };
 
-    const shotType = isServe ? SHOT_TYPES.SERVE : swipe.shotType;
+    const shotType = isServe ? swipe.shotType : swipe.shotType;
     this.shuttlecock.launch(shotType, startPos, targetPos, finalPower, 'player', quality);
 
     // Impact particles for every hit; text + shake only for smashes
@@ -303,7 +310,8 @@ export class GameEngine {
       this.renderer.effectsRenderer.triggerShake(1.2);
       this.freezeFrames = 0.08; // Hit-stop freeze frame!
     } else if (isServe) {
-      this.renderer.effectsRenderer.addHitText(startPos, 'SERVE!', '#FACC15');
+      const serveLabel = (shotType === SHOT_TYPES.SERVE_HIGH) ? 'HIGH SERVE!' : 'SHORT SERVE!';
+      this.renderer.effectsRenderer.addHitText(startPos, serveLabel, '#FACC15');
     } else if (timingLabel) {
       this.renderer.effectsRenderer.addHitText(startPos, timingLabel, timingColor || '#4ADE80');
     } else if (quality === 'PERFECT') {
@@ -321,10 +329,11 @@ export class GameEngine {
     // AI quality simulation
     const rand = Math.random();
     let quality = 'GOOD';
+    const isServeShot = (aiShot.shotType === SHOT_TYPES.SERVE || aiShot.shotType === SHOT_TYPES.SERVE_SHORT || aiShot.shotType === SHOT_TYPES.SERVE_HIGH);
     if (rand < 0.2) quality = 'PERFECT';
     else if (rand > 0.85) quality = 'POOR';
 
-    if (quality === 'POOR' && aiShot.shotType !== SHOT_TYPES.SERVE) {
+    if (quality === 'POOR' && !isServeShot) {
       this.opponent.triggerStumble();
       aiShot.shotType = SHOT_TYPES.CLEAR;
       aiShot.power *= 0.7;
@@ -332,13 +341,13 @@ export class GameEngine {
       this.opponent.triggerSwing(aiShot.shotType);
     }
 
-    if (aiShot.shotType === SHOT_TYPES.SERVE) {
+    if (isServeShot) {
       const serveDir = this.opponent.x > 0 ? -1 : 1;
       aiShot.targetPos.x = (serveDir * Court.HALF_WIDTH / 2) + (Math.random() - 0.5) * (Court.HALF_WIDTH * 0.8);
     }
 
-    const startPos = (aiShot.shotType === SHOT_TYPES.SERVE)
-      ? { x: this.opponent.x + (this.opponent.x > 0 ? -0.25 : 0.25), y: 1.2, z: this.opponent.z - 0.3 }
+    const startPos = isServeShot
+      ? { x: this.opponent.x + (this.opponent.x > 0 ? -0.22 : 0.22), y: 1.05, z: this.opponent.z - 0.3 }
       : { x: this.shuttlecock.x, y: Math.max(0.4, this.shuttlecock.y), z: this.shuttlecock.z };
     this.shuttlecock.launch(aiShot.shotType, startPos, aiShot.targetPos, aiShot.power, 'opponent', quality);
 
@@ -390,11 +399,18 @@ export class GameEngine {
       if (this.score.server === 'opponent') {
         this.serveTimer += dt;
         if (this.serveTimer >= 1.2) {
-          this.opponent.triggerSwing();
+          const aiServeType = Math.random() < 0.65 ? SHOT_TYPES.SERVE_SHORT : SHOT_TYPES.SERVE_HIGH;
+          const targetZ = (aiServeType === SHOT_TYPES.SERVE_HIGH)
+            ? (Court.BASELINE_PLAYER + 0.5)
+            : (-COURT.SHORT_SERVICE_DIST - 0.45);
+          const serveDir = this.opponent.x > 0 ? -1 : 1;
+          const targetX = (serveDir * Court.HALF_WIDTH / 2) + (Math.random() - 0.5) * 0.8;
+
+          this.opponent.triggerSwing(aiServeType);
           this._executeAIShot({
-            shotType: SHOT_TYPES.SERVE,
-            targetPos: { x: (Math.random() - 0.5) * 3.0, y: 0, z: -3.5 },
-            power: 0.95,
+            shotType: aiServeType,
+            targetPos: { x: targetX, y: 0, z: targetZ },
+            power: aiServeType === SHOT_TYPES.SERVE_HIGH ? 0.95 : 0.85,
           });
           this.state = GAME_STATES.RALLY;
         }

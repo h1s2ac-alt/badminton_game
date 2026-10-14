@@ -1,5 +1,5 @@
 import { Court } from './court.js';
-import { clamp } from '../utils/math.js';
+import { clamp, lerp } from '../utils/math.js';
 import { DIFFICULTY_CONFIGS, DIFFICULTY } from '../utils/constants.js';
 
 export class Opponent {
@@ -11,8 +11,11 @@ export class Opponent {
     this.x = home.x;
     this.y = home.y;
     this.z = home.z;
+    this.vx = 0;
+    this.vz = 0;
     this.animState = 'IDLE';
     this.animTimer = 0;
+    this.swingDuration = 0.52;
     this.runAnimTime = 0;
 
     // Stamina system (0.0 to 1.0)
@@ -34,6 +37,8 @@ export class Opponent {
     this.x = home.x;
     this.y = home.y;
     this.z = home.z;
+    this.vx = 0;
+    this.vz = 0;
     this.animState = 'IDLE';
     this.animTimer = 0;
     this.runAnimTime = 0;
@@ -53,10 +58,15 @@ export class Opponent {
     if (this.stumbleTimer > 0) speedMult *= 0.3;
     this.speed = this.baseSpeed * speedMult;
 
-    if (dist > 0.05) {
-      const step = Math.min(dist, this.speed * dt);
-      this.x += (dx / dist) * step;
-      this.z += (dz / dist) * step;
+    if (dist > 0.08) {
+      const targetVx = (dx / dist) * this.speed;
+      const targetVz = (dz / dist) * this.speed;
+      const blend = Math.min(1, dt * 14);
+      this.vx = lerp(this.vx || 0, targetVx, blend);
+      this.vz = lerp(this.vz || 0, targetVz, blend);
+
+      this.x += this.vx * dt;
+      this.z += this.vz * dt;
 
       this.x = clamp(this.x, -Court.HALF_WIDTH, Court.HALF_WIDTH);
       this.z = clamp(this.z, 0.2, Court.BASELINE_OPPONENT);
@@ -65,16 +75,24 @@ export class Opponent {
         this.animState = 'RUNNING';
         this.runAnimTime += dt;
       }
-    } else if (this.animState === 'RUNNING') {
-      this.animState = 'IDLE';
+    } else {
+      const blend = Math.min(1, dt * 16);
+      this.vx = lerp(this.vx || 0, 0, blend);
+      this.vz = lerp(this.vz || 0, 0, blend);
+      this.x += (this.vx || 0) * dt;
+      this.z += (this.vz || 0) * dt;
+
+      if (this.animState === 'RUNNING' && Math.hypot(this.vx || 0, this.vz || 0) < 0.08) {
+        this.animState = 'IDLE';
+      }
     }
   }
 
   triggerSwing(shotType = 'CLEAR') {
     this.animState = 'SWINGING';
     this.currentShotType = shotType;
-    this.animTimer = 0.32;
-    this.swingDuration = 0.32;
+    this.animTimer = 0.52;
+    this.swingDuration = 0.52;
   }
 
   triggerWhiff() {
@@ -113,3 +131,4 @@ export class Opponent {
     }
   }
 }
+

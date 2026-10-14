@@ -23,6 +23,8 @@ export const SHOT_TYPES = {
   DRIVE: 'DRIVE',
   NET: 'NET',
   SERVE: 'SERVE',
+  SERVE_SHORT: 'SERVE_SHORT',
+  SERVE_HIGH: 'SERVE_HIGH',
 };
 
 export const GAME_STATES = {

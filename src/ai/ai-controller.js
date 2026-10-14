@@ -43,15 +43,14 @@ export class AIController {
 
     // Move opponent smoothly toward target intercept spot on opponent court
     if (shuttlecock.trajectory) {
-      const targetX = clamp(shuttlecock.trajectory.target.x, -Court.HALF_WIDTH + 0.35, Court.HALF_WIDTH - 0.35);
-      const targetZ = clamp(shuttlecock.trajectory.target.z, 0.6, Court.BASELINE_OPPONENT - 0.3);
+      const traj = shuttlecock.trajectory;
+      const target = traj.target || traj.targetPos;
+      // Fixed, stable target intercept position for opponent (stands behind contact point)
+      const idealX = target.x + 0.25;
+      const idealZ = target.z + 0.35;
 
-      let desX = targetX;
-      let desZ = targetZ;
-      if (shuttlecock.z > 0.8) {
-        desX = lerp(targetX, shuttlecock.x, 0.35);
-        desZ = lerp(targetZ, shuttlecock.z, 0.25);
-      }
+      const desX = clamp(idealX, -Court.HALF_WIDTH + 0.35, Court.HALF_WIDTH - 0.35);
+      const desZ = clamp(idealZ, 0.6, Court.BASELINE_OPPONENT - 0.35);
 
       this.opponent.moveTo(desX, desZ, dt);
     }
@@ -60,7 +59,7 @@ export class AIController {
     if (shuttlecock.isHittableBy('opponent', this.opponent)) {
       // Execute shot!
       const shot = this.plannedShot || this._planShot(shuttlecock, player);
-      this.opponent.triggerSwing();
+      this.opponent.triggerSwing(shot.shotType);
       onAISwing(shot);
       this.reset();
     }
