@@ -39,11 +39,13 @@ export class Renderer {
     this.scene.background = new THREE.Color(0x0A0F1D); // Modern tournament stadium atmosphere
     this.scene.fog = new THREE.FogExp2(0x0A0F1D, 0.012);
 
-    // Elevated broadcast camera looking down over player's head (unobstructed view of shuttle, racket, & net)
-    this.camera = new THREE.PerspectiveCamera(48, this.width / this.height, 0.1, 100);
-    this.baseCamY = 4.8;
-    this.camera.position.set(0, this.baseCamY, -8.6);
-    this.camera.lookAt(0, 0.85, 0.2);
+    // Wide stadium broadcast camera with elevated perspective
+    // Positioned back and up so character is completely visible at all times, even deep behind baseline
+    this.camera = new THREE.PerspectiveCamera(52, this.width / this.height, 0.1, 100);
+    this.baseCamY = 6.2;
+    this.baseCamZ = -12.5;
+    this.camera.position.set(0, this.baseCamY, this.baseCamZ);
+    this.camera.lookAt(0, 0.6, -1.0);
 
     this.threeRenderer = new THREE.WebGLRenderer({
       canvas: this.threeCanvas,
@@ -104,20 +106,35 @@ export class Renderer {
     };
   }
 
-  _updateDynamicCamera(shuttlecock) {
-    if (shuttlecock && shuttlecock.inFlight && shuttlecock.y > 3.0) {
-      const highFactor = Math.min(1.0, (shuttlecock.y - 3.0) / 4.0);
-      const targetY = this.baseCamY + highFactor * 0.55;
-      this.camera.position.y += (targetY - this.camera.position.y) * 0.08;
-      this.camera.lookAt(0, 0.85 + highFactor * 0.5, 0.2);
-    } else {
-      this.camera.position.y += (this.baseCamY - this.camera.position.y) * 0.06;
-      this.camera.lookAt(0, 0.85, 0.2);
+  _updateDynamicCamera(shuttlecock, player) {
+    let targetCamZ = this.baseCamZ;
+    let targetCamY = this.baseCamY;
+    let targetLookZ = -1.0;
+    let targetLookY = 0.6;
+
+    // When player retreats to deep back court (z < -4.8), smoothly pull camera back
+    // so the character, feet, racket, and overhead smash/clear are NEVER cut off!
+    if (player && player.z < -4.8) {
+      const retreatDist = Math.abs(player.z - (-4.8));
+      targetCamZ -= retreatDist * 0.90;
+      targetCamY += retreatDist * 0.35;
+      targetLookZ -= retreatDist * 0.35;
     }
+
+    // Dynamic vertical tracking for high lofted clears so bird stays in frame
+    if (shuttlecock && shuttlecock.inFlight && shuttlecock.y > 2.8) {
+      const highFactor = Math.min(1.0, (shuttlecock.y - 2.8) / 3.5);
+      targetCamY += highFactor * 0.65;
+      targetLookY += highFactor * 0.55;
+    }
+
+    this.camera.position.z += (targetCamZ - this.camera.position.z) * 0.08;
+    this.camera.position.y += (targetCamY - this.camera.position.y) * 0.08;
+    this.camera.lookAt(0, targetLookY, targetLookZ);
   }
 
   render(gameState) {
-    this._updateDynamicCamera(gameState.shuttlecock);
+    this._updateDynamicCamera(gameState.shuttlecock, gameState.player);
 
     // Apply camera shake if any
     const shake = this.effectsRenderer.getShakeOffset();

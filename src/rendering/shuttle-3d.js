@@ -225,7 +225,8 @@ export class Shuttle3D {
       quat.multiply(rollQuat);
       this.meshGroup.quaternion.copy(quat);
     } else {
-      this.meshGroup.rotation.set(Math.PI / 2, 0, 0);
+      // Natural serve hold: feathers up, cork down towards racket
+      this.meshGroup.rotation.set(-Math.PI * 0.45, 0, 0);
     }
 
     // 3. Vertical laser drop beam and ground drop shadow

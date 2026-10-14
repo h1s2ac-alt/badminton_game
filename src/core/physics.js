@@ -27,9 +27,12 @@ export class Trajectory {
     this.dragK = config.dragK || 1.6;
     this.hangFactor = config.hangFactor || 1.0;
 
-    // Enforce net clearance for PERFECT hits crossing the net (Z=0)
+    // Enforce net clearance for shots crossing the net (Z=0)
     const crossesNet = Math.sign(this.start.z) !== Math.sign(this.target.z) && Math.abs(this.target.z - this.start.z) > 0.1;
-    if (crossesNet && quality === 'PERFECT') {
+    const isServe = (shotType === SHOT_TYPES.SERVE || shotType === SHOT_TYPES.SERVE_SHORT || shotType === SHOT_TYPES.SERVE_HIGH);
+    const shouldClear = isServe || (quality === 'PERFECT') || (quality === 'GOOD' && shotType !== SHOT_TYPES.NET);
+
+    if (crossesNet && shouldClear) {
       // Find approximate time when shuttlecock crosses the net at Z=0
       const totalZDist = Math.abs(this.target.z - this.start.z);
       const startToNetZ = Math.abs(this.start.z);
@@ -43,10 +46,16 @@ export class Trajectory {
         tNet = clamp(-Math.log(arg) / this.dragK, 0.1, 0.9);
       }
 
-      // Check height at net
-      const minNetClearance = COURT.NET_HEIGHT + 0.15;
+      // Check height at net: short serves clear tape cleanly; high serves/clears soar above
+      let minNetClearance = COURT.NET_HEIGHT + 0.12;
+      if (shotType === SHOT_TYPES.SERVE_SHORT) {
+        minNetClearance = COURT.NET_HEIGHT + 0.16; // 1.71m (skims tape by 16cm)
+      } else if (shotType === SHOT_TYPES.SERVE_HIGH || shotType === SHOT_TYPES.CLEAR) {
+        minNetClearance = 3.6;
+      }
+
       let attempts = 0;
-      while (this.getPositionAt(tNet).y < minNetClearance && attempts < 12) {
+      while (this.getPositionAt(tNet).y < minNetClearance && attempts < 25) {
         this.apexHeight += 0.15;
         attempts++;
       }

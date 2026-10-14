@@ -176,17 +176,21 @@ export class GameEngine {
     if (serverRole === 'player') {
       this.player.x = serverPos.x;
       this.player.z = serverPos.z;
-      this.shuttlecock.reset({ x: this.player.x + 0.3, y: 1.2, z: this.player.z + 0.3 });
+      this.player.animState = 'SERVE_READY';
+      this.shuttlecock.reset({ x: this.player.x - 0.18, y: 1.05, z: this.player.z + 0.32 });
       
       this.opponent.x = receiverPos.x;
       this.opponent.z = receiverPos.z;
+      this.opponent.animState = 'RECEIVE_READY';
     } else {
       this.opponent.x = serverPos.x;
       this.opponent.z = serverPos.z;
-      this.shuttlecock.reset({ x: this.opponent.x - 0.3, y: 1.2, z: this.opponent.z - 0.3 });
+      this.opponent.animState = 'SERVE_READY';
+      this.shuttlecock.reset({ x: this.opponent.x + 0.18, y: 1.05, z: this.opponent.z - 0.32 });
       
       this.player.x = receiverPos.x;
       this.player.z = receiverPos.z;
+      this.player.animState = 'RECEIVE_READY';
     }
 
     this.ai.reset();
@@ -291,7 +295,7 @@ export class GameEngine {
 
     // Launch from waist level (1.05m) on serves below waist height (authentic legal badminton serve)
     const startPos = isServe
-      ? { x: this.player.x + (this.player.x > 0 ? -0.22 : 0.22), y: 1.05, z: this.player.z + 0.3 }
+      ? { x: this.player.x - 0.18, y: 1.05, z: this.player.z + 0.32 }
       : { x: this.shuttlecock.x, y: Math.max(0.4, this.shuttlecock.y), z: this.shuttlecock.z };
     const targetPos = { x: targetX, y: 0, z: targetZ };
 
@@ -347,7 +351,7 @@ export class GameEngine {
     }
 
     const startPos = isServeShot
-      ? { x: this.opponent.x + (this.opponent.x > 0 ? -0.22 : 0.22), y: 1.05, z: this.opponent.z - 0.3 }
+      ? { x: this.opponent.x + 0.18, y: 1.05, z: this.opponent.z - 0.32 }
       : { x: this.shuttlecock.x, y: Math.max(0.4, this.shuttlecock.y), z: this.shuttlecock.z };
     this.shuttlecock.launch(aiShot.shotType, startPos, aiShot.targetPos, aiShot.power, 'opponent', quality);
 
@@ -395,8 +399,25 @@ export class GameEngine {
     const moveInput = this.input.getMovementVector();
 
     if (this.state === GAME_STATES.PRE_SERVE) {
-      this.player.update(dt, null, false, moveInput);
-      if (this.score.server === 'opponent') {
+      if (this.score.server === 'player') {
+        this.player.animState = 'SERVE_READY';
+        this.opponent.animState = 'RECEIVE_READY';
+        // Shuttlecock held steady in player's forward left hand
+        this.shuttlecock.x = this.player.x - 0.18;
+        this.shuttlecock.y = 1.05;
+        this.shuttlecock.z = this.player.z + 0.32;
+        this.player.update(dt, null, false, moveInput);
+        this.opponent.update(dt);
+      } else {
+        this.opponent.animState = 'SERVE_READY';
+        this.player.animState = 'RECEIVE_READY';
+        // Shuttlecock held steady in opponent's forward hand
+        this.shuttlecock.x = this.opponent.x + 0.18;
+        this.shuttlecock.y = 1.05;
+        this.shuttlecock.z = this.opponent.z - 0.32;
+        this.player.update(dt, null, false, moveInput);
+        this.opponent.update(dt);
+
         this.serveTimer += dt;
         if (this.serveTimer >= 1.2) {
           const aiServeType = Math.random() < 0.65 ? SHOT_TYPES.SERVE_SHORT : SHOT_TYPES.SERVE_HIGH;
