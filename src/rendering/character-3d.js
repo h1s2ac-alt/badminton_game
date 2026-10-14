@@ -393,7 +393,7 @@ export class Character3D {
     if (!character) return;
 
     // 1. Position character in 3D world space (mapped to camera perspective)
-    this.group.position.set(-character.x, 0, character.z);
+    let jumpY = character.y || 0;
 
     // 2. Authentic Badminton Athletic Ready Stance
     // Knee bend lowering center of gravity, forward athletic tilt, ready racket hold
@@ -551,47 +551,69 @@ export class Character3D {
           leftArmAngle = THREE.MathUtils.lerp(0.45, 0.35, p);
         }
       } else if (shotType === SHOT_TYPES.SMASH) {
-        // ── OVERHEAD JUMP SMASH ──────────────────────────────────────────
+        // ── OVERHEAD JUMP SMASH: EXPLOSIVE VERTICAL LEAP & SCISSOR KICK ───
+        // Vertical leap arc: character takes off, reaches 0.85m apex at contact (t=0.35), lands at t=0.75
+        if (t < 0.75) {
+          const jumpPhase = t / 0.75;
+          jumpY = Math.sin(jumpPhase * Math.PI) * 0.85;
+        } else {
+          jumpY = 0;
+        }
+
         if (t < 0.25) {
           const p = t / 0.25;
-          // Windup: Cock racket high behind back, arch torso back, jump takeoff
-          torsoBob = THREE.MathUtils.lerp(-0.05, 0.26, p);
-          torsoRotX = THREE.MathUtils.lerp(0.12, -0.18, p);
-          rightArmRotX = THREE.MathUtils.lerp(0.45, -1.90, p);
-          rightArmRotZ = THREE.MathUtils.lerp(-0.35, 0.50, p);
-          leftArmAngle = THREE.MathUtils.lerp(0.35, -1.15, p); // Non-racket arm tracks bird
-          leftLegAngle = -0.20 * p;
-          rightLegAngle = -0.30 * p;
+          // Takeoff: explosive upward thrust, cock racket back behind head, arch back
+          torsoRotX = THREE.MathUtils.lerp(0.12, -0.25, p);
+          torsoRotY = THREE.MathUtils.lerp(0, -0.35, p); // Coils body sideways for power
+          rightArmRotX = THREE.MathUtils.lerp(0.45, -2.15, p); // Racket cocked high behind head
+          rightArmRotY = THREE.MathUtils.lerp(0, -0.45, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.35, 0.65, p);
+          leftArmAngle = THREE.MathUtils.lerp(0.35, -1.35, p); // Non-racket arm points straight up tracking bird
+          leftArmRotZ = THREE.MathUtils.lerp(0.35, 0.25, p);
+          // Legs trailing during ascent
+          leftLegAngle = THREE.MathUtils.lerp(0.08, -0.45, p);
+          rightLegAngle = THREE.MathUtils.lerp(-0.06, -0.55, p);
         } else if (t < 0.50) {
           const p = (t - 0.25) / 0.25;
-          // Explosive downward whip at contact in air
-          torsoBob = 0.26 * Math.sin((1 - p * 0.4) * Math.PI);
-          torsoRotX = THREE.MathUtils.lerp(-0.18, 0.38, p); // Crunch forward into shot!
-          headRotX = THREE.MathUtils.lerp(-0.25, 0.28, p);
-          rightArmRotX = THREE.MathUtils.lerp(-1.90, 2.15, p);
-          rightArmRotZ = THREE.MathUtils.lerp(0.50, -0.65, p);
-          leftArmAngle = THREE.MathUtils.lerp(-1.15, 0.45, p);
+          // Apex & Contact: explosive forward abdominal crunch, scissor kick!
+          torsoRotX = THREE.MathUtils.lerp(-0.25, 0.45, p); // Violent forward abdominal crunch
+          torsoRotY = THREE.MathUtils.lerp(-0.35, 0.35, p); // Uncoils forward into shot
+          headRotX = THREE.MathUtils.lerp(-0.30, 0.35, p);
+          rightArmRotX = THREE.MathUtils.lerp(-2.15, 2.25, p); // High overhead downward whip
+          rightArmRotY = THREE.MathUtils.lerp(-0.45, 0.25, p);
+          rightArmRotZ = THREE.MathUtils.lerp(0.65, -0.75, p);
+          leftArmAngle = THREE.MathUtils.lerp(-1.35, 0.65, p);
+          // Authentic badminton scissor kick in mid-air:
+          // Right racket leg drives forward, left leg trails back
+          leftLegAngle = THREE.MathUtils.lerp(-0.45, -0.65, p);
+          rightLegAngle = THREE.MathUtils.lerp(-0.55, 0.75, p);
 
           swooshActive = true;
           swooshOpacity = Math.sin(p * Math.PI) * 0.98;
           this.swooshMat.color.setHex(0xFF3C28); // Blazing smash red
         } else if (t < 0.75) {
           const p = (t - 0.50) / 0.25;
-          // Landing absorption & follow-through past hip
-          torsoBob = THREE.MathUtils.lerp(0.10, -0.07, p);
-          torsoRotX = THREE.MathUtils.lerp(0.38, 0.16, p);
-          headRotX = THREE.MathUtils.lerp(0.28, 0.05, p);
-          rightArmRotX = THREE.MathUtils.lerp(2.15, 1.10, p);
-          rightArmRotZ = THREE.MathUtils.lerp(-0.65, -0.42, p);
+          // Descent & Landing absorption: right foot touches down first
+          torsoRotX = THREE.MathUtils.lerp(0.45, 0.18, p);
+          torsoRotY = THREE.MathUtils.lerp(0.35, 0.05, p);
+          headRotX = THREE.MathUtils.lerp(0.35, 0.08, p);
+          rightArmRotX = THREE.MathUtils.lerp(2.25, 1.15, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.75, -0.45, p);
+          leftLegAngle = THREE.MathUtils.lerp(-0.65, 0.15, p);
+          rightLegAngle = THREE.MathUtils.lerp(0.75, 0.25, p); // Deep landing knee bend
+          torsoBob = -0.12 * Math.sin(p * Math.PI); // Cushion impact
         } else {
           const p = (t - 0.75) / 0.25;
           // Smooth return to athletic stance
-          torsoBob = THREE.MathUtils.lerp(-0.07, -0.05, p);
-          torsoRotX = THREE.MathUtils.lerp(0.16, 0.12, p);
-          headRotX = THREE.MathUtils.lerp(0.05, 0, p);
-          rightArmRotX = THREE.MathUtils.lerp(1.10, 0.45, p);
-          rightArmRotZ = THREE.MathUtils.lerp(-0.42, -0.35, p);
-          leftArmAngle = THREE.MathUtils.lerp(0.45, 0.35, p);
+          torsoBob = THREE.MathUtils.lerp(-0.08, -0.05, p);
+          torsoRotX = THREE.MathUtils.lerp(0.18, 0.12, p);
+          torsoRotY = THREE.MathUtils.lerp(0.05, 0, p);
+          headRotX = THREE.MathUtils.lerp(0.08, 0, p);
+          rightArmRotX = THREE.MathUtils.lerp(1.15, 0.45, p);
+          rightArmRotZ = THREE.MathUtils.lerp(-0.45, -0.35, p);
+          leftArmAngle = THREE.MathUtils.lerp(0.65, 0.35, p);
+          leftLegAngle = THREE.MathUtils.lerp(0.15, 0.08, p);
+          rightLegAngle = THREE.MathUtils.lerp(0.25, -0.06, p);
         }
       } else if (shotType === SHOT_TYPES.DRIVE) {
         // ── FLAT SIDEARM DRIVE WHIP ──────────────────────────────────────
@@ -737,6 +759,7 @@ export class Character3D {
     this.bodyGroup.position.y = torsoBob;
     this.bodyGroup.rotation.x = torsoRotX;
     this.bodyGroup.rotation.y = (!this.isPlayer ? Math.PI : 0) + torsoRotY;
+    this.group.position.set(-character.x, jumpY, character.z);
 
     if (this.headGroup) {
       this.headGroup.rotation.x = headRotX;

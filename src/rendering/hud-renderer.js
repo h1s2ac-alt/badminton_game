@@ -172,7 +172,7 @@ export class HUDRenderer {
     ctx.fillStyle = 'rgba(15, 23, 42, 0.75)';
     ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
     ctx.lineWidth = 1;
-    const badgeW = 264;
+    const badgeW = 320;
     const badgeH = 26;
     const badgeX = w - badgeW - 20;
     const badgeY = h - 35;
@@ -184,7 +184,7 @@ export class HUDRenderer {
     ctx.font = '600 11px sans-serif';
     ctx.fillStyle = '#94A3B8';
     ctx.textAlign = 'center';
-    ctx.fillText('WASD / ARROWS : Footwork  •  SPACE : Swing', badgeX + badgeW / 2, badgeY + 17);
+    ctx.fillText('WASD : Move  •  ARROWS : Direct Shot / Smash  •  SPACE : Swing', badgeX + badgeW / 2, badgeY + 17);
     ctx.restore();
 
     // --- 4. Round Result Banner ---

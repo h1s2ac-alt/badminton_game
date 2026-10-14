@@ -25,11 +25,12 @@ export class InputManager {
   getMovementVector() {
     let dx = 0;
     let dz = 0;
-    if (this.keys['KeyA'] || this.keys['ArrowLeft']) dx -= 1;
-    if (this.keys['KeyD'] || this.keys['ArrowRight']) dx += 1;
-    // For player facing +Z towards net: W/Up is forward (+Z), S/Down is backward (-Z)
-    if (this.keys['KeyW'] || this.keys['ArrowUp']) dz += 1;
-    if (this.keys['KeyS'] || this.keys['ArrowDown']) dz -= 1;
+    // WASD is dedicated to footwork positioning
+    if (this.keys['KeyA']) dx -= 1;
+    if (this.keys['KeyD']) dx += 1;
+    // For player facing +Z towards net: W is forward (+Z), S is backward (-Z)
+    if (this.keys['KeyW']) dz += 1;
+    if (this.keys['KeyS']) dz -= 1;
 
     const len = Math.hypot(dx, dz);
     if (len > 0) {
@@ -38,11 +39,32 @@ export class InputManager {
     return { dx: 0, dz: 0, active: false };
   }
 
-  _triggerTap(x = window.innerWidth / 2, y = window.innerHeight * 0.75) {
+  /**
+   * Arrow keys are dedicated to directing shot placement:
+   * ArrowLeft: Aim Left (Cross-court or down-the-line to left sideline)
+   * ArrowRight: Aim Right (Cross-court or down-the-line to right sideline)
+   * ArrowUp: Deep shot / Jump Smash / High Clear
+   * ArrowDown: Short drop / Tight net tap
+   */
+  getAimDirection() {
+    let aimX = 0;
+    let aimZ = 0;
+
+    if (this.keys['ArrowLeft'])  aimX -= 1;
+    if (this.keys['ArrowRight']) aimX += 1;
+    if (this.keys['ArrowUp'])    aimZ += 1; // Deep / Overhead Smash
+    if (this.keys['ArrowDown'])  aimZ -= 1; // Short / Drop / Net
+
+    const active = (aimX !== 0 || aimZ !== 0);
+    return { aimX, aimZ, active };
+  }
+
+  _triggerTap(x = (typeof window !== 'undefined' ? window.innerWidth / 2 : 400), y = (typeof window !== 'undefined' ? window.innerHeight * 0.75 : 300)) {
     this.tapListeners.forEach(fn => fn({ x, y }));
   }
 
   _bindSwingButton() {
+    if (typeof document === 'undefined') return;
     const bindBtn = () => {
       const btn = document.getElementById('swing-btn');
       if (btn) {
@@ -67,7 +89,8 @@ export class InputManager {
   }
 
   _bindEvents() {
-    // 1. Keyboard Spacebar for swinging & WASD / Arrow keys for footwork
+    if (typeof window === 'undefined') return;
+    // 1. Keyboard Spacebar for swinging, WASD for movement, Arrow Keys for directing shot placement
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space' || e.key === ' ' || e.code === 'KeyZ' || e.code === 'Enter') {
         if (!e.repeat) {
@@ -77,9 +100,21 @@ export class InputManager {
         return;
       }
 
-      if (['KeyW', 'KeyS', 'KeyA', 'KeyD', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+      // WASD for movement footwork
+      if (['KeyW', 'KeyS', 'KeyA', 'KeyD'].includes(e.code)) {
         this.keys[e.code] = true;
         e.preventDefault();
+        return;
+      }
+
+      // Arrow keys for directing shot placement: also trigger swing if tapped
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) {
+        this.keys[e.code] = true;
+        e.preventDefault();
+        if (!e.repeat) {
+          this._triggerTap();
+        }
+        return;
       }
     });
 

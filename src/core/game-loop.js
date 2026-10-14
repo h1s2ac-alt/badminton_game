@@ -41,7 +41,10 @@ export class GameEngine {
     if (this.state === GAME_STATES.PRE_SERVE) {
       if (this.score.server === 'player') {
         if (this._shotCooldown > 0) return;
-        this._executePlayerShot({ shotType: SHOT_TYPES.SERVE_SHORT, power: 0.88, sideBias: 0 }, true);
+        const aim = this.input.getAimDirection();
+        const serveShotType = (aim.aimZ > 0) ? SHOT_TYPES.SERVE_HIGH : SHOT_TYPES.SERVE_SHORT;
+        const sideBias = aim.aimX !== 0 ? (aim.aimX * 0.75) : 0;
+        this._executePlayerShot({ shotType: serveShotType, power: 0.88, sideBias }, true);
         this.state = GAME_STATES.RALLY;
         this._shotCooldown = 0.28;
       }
@@ -62,8 +65,14 @@ export class GameEngine {
       this._resolvePlayerHit(swipe);
     } else {
       // Initiate swing immediately!
-      // If the shuttlecock arrives while the racket is actively whipping forward, it will connect!
-      const shotType = swipe ? swipe.shotType : SHOT_TYPES.CLEAR;
+      // If player is aiming with Arrow Up and bird is overhead, cue smash!
+      const aim = this.input.getAimDirection();
+      let shotType = swipe ? swipe.shotType : SHOT_TYPES.CLEAR;
+      if (aim.aimZ > 0 && this.shuttlecock.y > 1.7) {
+        shotType = SHOT_TYPES.SMASH;
+      } else if (aim.aimZ < 0) {
+        shotType = SHOT_TYPES.DROP;
+      }
       this.player.triggerSwing(shotType);
       this._pendingSwipe = swipe;
       this._whiffDebounce = 0.12;
@@ -71,6 +80,7 @@ export class GameEngine {
   }
 
   _resolvePlayerHit(swipe = null) {
+    const aim = this.input.getAimDirection();
     const dx = this.shuttlecock.x - this.player.x;
     const dz = this.shuttlecock.z - this.player.z;
     const dist = Math.hypot(dx, dz);
@@ -82,65 +92,21 @@ export class GameEngine {
     let timingColor = '#4ADE80';
     let shotType = swipe ? swipe.shotType : SHOT_TYPES.CLEAR;
 
-    // 1. EARLY SWING (Contact in front -> Cross-court)
+    // Check timing quality
     if (zTiming > 0.25) {
-      const crossSide = this.player.x >= 0 ? -1 : 1;
-      sideBias = crossSide * 0.80;
-      timingLabel = 'EARLY (CROSS-COURT)';
+      sideBias = (this.player.x >= 0 ? -1 : 1) * 0.80;
+      timingLabel = 'EARLY!';
       timingColor = '#06B6D4';
-
-      if (!swipe) {
-        if (this.shuttlecock.y > 2.0 && dist < 1.35) {
-          shotType = SHOT_TYPES.SMASH;
-        } else if (this.shuttlecock.z > -2.2) {
-          shotType = SHOT_TYPES.DROP;
-        } else {
-          shotType = SHOT_TYPES.CLEAR;
-        }
-      }
-    }
-    // 2. PERFECT / SWEET-SPOT SWING
-    else if (zTiming >= -0.20) {
+    } else if (zTiming >= -0.20) {
       quality = 'PERFECT';
-      const openCourtSide = this.opponent.x >= 0 ? -1 : 1;
-      sideBias = openCourtSide * 0.72;
-
-      if (!swipe) {
-        if (this.shuttlecock.y > 1.9 && dist < 1.35) {
-          shotType = SHOT_TYPES.SMASH;
-          timingLabel = 'PERFECT! (SMASH!)';
-          timingColor = '#FACC15';
-        } else if (this.shuttlecock.y < 1.2 || this.shuttlecock.z > -2.2) {
-          shotType = SHOT_TYPES.DROP;
-          timingLabel = 'PERFECT! (DROP)';
-          timingColor = '#4ADE80';
-        } else {
-          shotType = SHOT_TYPES.DRIVE;
-          timingLabel = 'PERFECT! (DRIVE)';
-          timingColor = '#38BDF8';
-        }
-      } else {
-        timingLabel = 'PERFECT!';
-        timingColor = '#FACC15';
-      }
-    }
-    // 3. LATE SWING (Down the line)
-    else if (zTiming >= -0.50) {
-      const lineSide = this.player.x >= 0 ? 1 : -1;
-      sideBias = lineSide * 0.74;
-      timingLabel = 'LATE (DOWN-THE-LINE)';
+      sideBias = (this.opponent.x >= 0 ? -1 : 1) * 0.75;
+      timingLabel = 'PERFECT!';
+      timingColor = '#FACC15';
+    } else if (zTiming >= -0.50) {
+      sideBias = (this.player.x >= 0 ? 1 : -1) * 0.74;
+      timingLabel = 'LATE!';
       timingColor = '#FB923C';
-
-      if (!swipe) {
-        if (this.shuttlecock.y > 2.1) {
-          shotType = SHOT_TYPES.CLEAR;
-        } else {
-          shotType = SHOT_TYPES.DRIVE;
-        }
-      }
-    }
-    // 4. TOO LATE (Off-balance recovery)
-    else {
+    } else {
       quality = 'POOR';
       sideBias = (Math.random() - 0.5) * 0.4;
       shotType = SHOT_TYPES.CLEAR;
@@ -148,8 +114,63 @@ export class GameEngine {
       timingColor = '#EF4444';
     }
 
-    const power = swipe ? swipe.power : (quality === 'PERFECT' ? 1.05 : 0.95);
-    const finalSideBias = (swipe && swipe.sideBias !== undefined) ? swipe.sideBias : sideBias;
+    // ARROW KEYS DIRECTIONAL OVERRIDE (Takes priority if player directs shot)
+    if (aim.active) {
+      // 1. Horizontal Direction (Left / Right Arrow)
+      if (aim.aimX < 0) {
+        sideBias = -0.85; // Directed to Left court
+      } else if (aim.aimX > 0) {
+        sideBias = 0.85; // Directed to Right court
+      }
+
+      // 2. Depth / Shot Placement (Up / Down Arrow)
+      if (aim.aimZ > 0) {
+        // Arrow UP: Aggressive overhead Jump Smash or deep Baseline Clear
+        if (this.shuttlecock.y > 1.65 && dist < 1.55) {
+          shotType = SHOT_TYPES.SMASH;
+          timingLabel = aim.aimX !== 0 ? (aim.aimX < 0 ? 'SMASH ◀ LEFT!' : 'SMASH ▶ RIGHT!') : 'JUMP SMASH!';
+          timingColor = '#FF3C28';
+        } else {
+          shotType = SHOT_TYPES.CLEAR;
+          timingLabel = aim.aimX !== 0 ? (aim.aimX < 0 ? 'CLEAR ◀ LEFT' : 'CLEAR ▶ RIGHT') : 'DEEP CLEAR!';
+          timingColor = '#38BDF8';
+        }
+      } else if (aim.aimZ < 0) {
+        // Arrow DOWN: Drop shot or tight Net shot
+        if (this.shuttlecock.z > -2.5 || this.shuttlecock.y < 1.3) {
+          shotType = SHOT_TYPES.NET;
+          timingLabel = aim.aimX !== 0 ? (aim.aimX < 0 ? 'NET ◀ LEFT' : 'NET ▶ RIGHT') : 'NET SHOT!';
+          timingColor = '#22C55E';
+        } else {
+          shotType = SHOT_TYPES.DROP;
+          timingLabel = aim.aimX !== 0 ? (aim.aimX < 0 ? 'DROP ◀ LEFT' : 'DROP ▶ RIGHT') : 'DROP SHOT!';
+          timingColor = '#4ADE80';
+        }
+      } else if (aim.aimX !== 0) {
+        // Only Left/Right pressed
+        if (this.shuttlecock.y > 1.85 && dist < 1.45) {
+          shotType = SHOT_TYPES.SMASH;
+          timingLabel = aim.aimX < 0 ? 'SMASH ◀ LEFT!' : 'SMASH ▶ RIGHT!';
+          timingColor = '#FF3C28';
+        } else {
+          shotType = SHOT_TYPES.DRIVE;
+          timingLabel = aim.aimX < 0 ? 'DRIVE ◀ LEFT' : 'DRIVE ▶ RIGHT';
+          timingColor = '#38BDF8';
+        }
+      }
+    } else if (!swipe) {
+      // Natural context if no arrow key or swipe provided
+      if (quality === 'PERFECT' && this.shuttlecock.y > 1.85 && dist < 1.45) {
+        shotType = SHOT_TYPES.SMASH;
+        timingLabel = 'JUMP SMASH!';
+        timingColor = '#FF3C28';
+      } else if (this.shuttlecock.z > -2.2) {
+        shotType = SHOT_TYPES.DROP;
+      }
+    }
+
+    const power = swipe ? swipe.power : (quality === 'PERFECT' ? 1.08 : 0.95);
+    const finalSideBias = (swipe && swipe.sideBias !== undefined && !aim.active) ? swipe.sideBias : sideBias;
 
     this.player.hasConnected = true;
     this._pendingSwipe = null;

@@ -153,7 +153,18 @@ export class Player {
       this.animTimer -= dt;
       if (this.animTimer <= 0) {
         this.animState = 'IDLE';
+        this.y = 0;
       }
+    }
+
+    // Dynamic vertical elevation during jump smash
+    if (this.animState === 'SWINGING' && this.currentShotType === 'SMASH') {
+      const dur = this.swingDuration || 0.52;
+      const elapsed = dur - (this.animTimer || 0);
+      const t = dur > 0 ? (elapsed / dur) : 0;
+      this.y = t < 0.75 ? Math.sin((t / 0.75) * Math.PI) * 0.85 : 0;
+    } else {
+      this.y = 0;
     }
 
     // 1. Manual Hybrid Footwork: WASD / Arrow keys override auto-run
